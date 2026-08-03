@@ -1,0 +1,27 @@
+services:
+  api:
+    build:
+      context: ./backend
+      target: dev
+    volumes:
+      - ./backend:/app
+      - backend-venv:/app/.venv
+    ports:
+      - "8000:8000"
+    environment:
+      - DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+      - AWS_DEFAULT_REGION=ap-northeast-1
+      # Cognito関連の環境変数は認証実装時に追加
+    depends_on:
+      - dynamodb-local
+
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+    ports:
+      - "8001:8000"
+
+volumes:
+  backend-venv:
