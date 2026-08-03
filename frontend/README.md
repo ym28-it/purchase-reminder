@@ -1,32 +1,24 @@
-# React + TypeScript + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + TypeScript + Vite。Biomeをlinter/formatterとして使用。
 
-Currently, two official plugins are available:
+## ディレクトリ構成
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```
+src/
+├── api/          # バックエンドへのHTTPクライアント（fetchラッパー、エンドポイント別関数、レスポンス型）
+├── components/   # 特定の画面・機能に依存しない再利用可能なUIパーツ
+├── features/     # 画面・機能単位のまとまり（例: 購入一覧、購入登録フォーム）
+├── hooks/        # カスタムフック（状態管理やAPI呼び出しのラップ）
+├── assets/       # 画像・アイコンなどの静的アセット
+├── App.tsx
+└── main.tsx
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## 各ディレクトリの責務
+
+- **api**: バックエンドAPIへの通信のみを担当。UIロジックは含めない
+- **components**: ボタンやカードのような、特定の画面・機能に依存しない汎用UIパーツ
+- **features**: 画面・機能単位でまとまったコンポーネント。componentsやapi、hooksを組み合わせて画面を構成する
+- **hooks**: 状態管理やAPI呼び出しをラップするカスタムフック（例: usePurchases）
+- **assets**: 画像・アイコンなどの静的ファイル
