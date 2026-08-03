@@ -1,0 +1,21 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --project backend ruff check --fix
+        language: system
+        files: ^backend/
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --project backend ruff format
+        language: system
+        files: ^backend/
+        types: [python]
+      - id: biome-check
+        name: biome check
+        entry: frontend/node_modules/.bin/biome check --write
+        language: system
+        files: ^frontend/
+        types_or: [ts, tsx, javascript, jsx, json]
