@@ -56,6 +56,8 @@ class PurchaseItem(TimestampedItem):
             speed=self.speed,
             stock=self.stock,
             is_temporary=self.is_temporary,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
         )
 
 
