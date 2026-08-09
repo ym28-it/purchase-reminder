@@ -17,7 +17,7 @@ RUN uv sync --frozen --no-install-project
 FROM base AS dev
 ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "python -m scripts.bootstrap_local_table && uvicorn main:app --reload --host 0.0.0.0 --port 8000"]
 
 # ---------------------------------------------------------------------------
 # prod-build: 本番イメージ用にソースを焼き込んでインストール
