@@ -1,6 +1,6 @@
-def main():
-    print("Hello from backend!")
+from fastapi import FastAPI
 
+from app.api.purchase import router as purchase_router
 
-if __name__ == "__main__":
-    main()
+app = FastAPI(title="Purchase Reminder API")
+app.include_router(purchase_router)
