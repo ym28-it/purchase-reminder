@@ -16,6 +16,16 @@ class PurchaseCreateRequest(BaseModel):
     is_temporary: bool = False
 
 
+class PurchasePutRequest(BaseModel):
+    """購入物の更新リクエスト。"""
+
+    name: str = Field(min_length=1)
+    category: str = Field(min_length=1)
+    speed: float = Field(gt=0, description="消費スピード")
+    stock: float = Field(ge=0, description="現在の在庫")
+    is_temporary: bool = False
+
+
 class PurchaseResponse(BaseModel):
     """購入物のレスポンス表現。"""
 

@@ -13,7 +13,7 @@ from botocore.exceptions import ClientError
 from app.core.dynamodb import get_table
 from app.domain.purchase import Purchase
 from app.models.base import TimestampedItem
-from app.models.exceptions import ItemAlreadyExistsError
+from app.models.exceptions import ItemAlreadyExistsError, ItemNotFoundError
 from app.models.keys import ItemKeySchema, KeyTemplate
 
 
@@ -90,3 +90,21 @@ def get_all_purchase_items(user_id: str, *, table_name: str | None = None) -> li
         ),
     )
     return [PurchaseItem.from_item(item) for item in response["Items"]]
+
+
+def put_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -> PurchaseItem:
+    """購入物を更新する。
+
+    同じキー（``user_id``+``id``）のアイテムが存在しなければ``ItemNotFoundError``。
+    """
+    table = get_table(table_name)
+    try:
+        table.put_item(
+            Item=item.to_item(),
+            ConditionExpression="attribute_exists(PK) AND attribute_exists(SK)",
+        )
+    except ClientError as error:
+        if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            raise ItemNotFoundError(f"購入物 {item.id}は存在しません。") from error
+        raise
+    return item

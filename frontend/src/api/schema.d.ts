@@ -22,6 +22,23 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	"/purchases/{purchase_id}": {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		/** Put Purchase Endpoint */
+		put: operations["put_purchase_endpoint_purchases__purchase_id__put"];
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -36,6 +53,31 @@ export interface components {
 		 * @description 購入物の新規作成リクエスト。
 		 */
 		PurchaseCreateRequest: {
+			/** Name */
+			name: string;
+			/** Category */
+			category: string;
+			/**
+			 * Speed
+			 * @description 消費スピード
+			 */
+			speed: number;
+			/**
+			 * Stock
+			 * @description 現在の在庫
+			 */
+			stock: number;
+			/**
+			 * Is Temporary
+			 * @default false
+			 */
+			is_temporary: boolean;
+		};
+		/**
+		 * PurchasePutRequest
+		 * @description 購入物の更新リクエスト。
+		 */
+		PurchasePutRequest: {
 			/** Name */
 			name: string;
 			/** Category */
@@ -144,6 +186,41 @@ export interface operations {
 		responses: {
 			/** @description Successful Response */
 			201: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["PurchaseResponse"];
+				};
+			};
+			/** @description Validation Error */
+			422: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["HTTPValidationError"];
+				};
+			};
+		};
+	};
+	put_purchase_endpoint_purchases__purchase_id__put: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				purchase_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				"application/json": components["schemas"]["PurchasePutRequest"];
+			};
+		};
+		responses: {
+			/** @description Successful Response */
+			200: {
 				headers: {
 					[name: string]: unknown;
 				};
