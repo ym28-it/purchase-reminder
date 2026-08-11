@@ -1,9 +1,14 @@
 from dataclasses import field
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.domain.purchase import Purchase
-from app.models.purchase import PurchaseItem, create_purchase_item, get_all_purchase_items
+from app.models.purchase import (
+    PurchaseItem,
+    create_purchase_item,
+    get_all_purchase_items,
+    put_purchase_item,
+)
 
 
 def get_all_purchases(
@@ -35,3 +40,28 @@ def create_purchase(
     purchase_item = PurchaseItem.from_domain(purchase=purchase)
     created_item = create_purchase_item(item=purchase_item)
     return created_item.to_domain()
+
+
+def put_purchase(
+    user_id: str,
+    id: UUID,
+    name: str,
+    category: str,
+    speed: float,
+    stock: float,
+    is_temporary: bool,
+) -> Purchase:
+    purchase = Purchase(
+        id=id,
+        user_id=user_id,
+        name=name,
+        category=category,
+        speed=speed,
+        stock=stock,
+        is_temporary=is_temporary,
+        created_at=field(default_factory=lambda: datetime.now(UTC)),
+        updated_at=field(default_factory=lambda: datetime.now(UTC)),
+    )
+    purchase_item = PurchaseItem.from_domain(purchase=purchase)
+    put_item = put_purchase_item(item=purchase_item)
+    return put_item.to_domain()
