@@ -31,3 +31,10 @@ export async function getAllPurchases(): Promise<PurchaseResponse[]> {
 	if (error) throw error;
 	return data;
 }
+
+export async function deletePurchase(purchaseId: string): Promise<void> {
+	const { error } = await apiClient.DELETE("/purchases/{purchase_id}", {
+		params: { path: { purchase_id: purchaseId } },
+	});
+	if (error) throw error;
+}
