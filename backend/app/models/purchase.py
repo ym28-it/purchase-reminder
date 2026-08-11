@@ -7,6 +7,7 @@
 
 from uuid import UUID
 
+from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
 from app.core.dynamodb import get_table
@@ -77,3 +78,15 @@ def create_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -
             raise ItemAlreadyExistsError(f"購入物 {item.id} は既に存在します") from error
         raise
     return item
+
+
+def get_all_purchase_items(user_id: str, *, table_name: str | None = None) -> list[PurchaseItem]:
+    """指定ユーザーの購入物を全件取得する。"""
+    table = get_table(table_name)
+    partition_key = PurchaseItem.primary_key
+    response = table.query(
+        KeyConditionExpression=Key(partition_key.partition_attribute).eq(
+            partition_key.partition_key.build(user_id=user_id)
+        ),
+    )
+    return [PurchaseItem.from_item(item) for item in response["Items"]]

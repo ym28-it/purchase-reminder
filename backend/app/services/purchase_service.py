@@ -1,9 +1,16 @@
 from dataclasses import field
 from datetime import UTC, datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from app.domain.purchase import Purchase
-from app.models.purchase import PurchaseItem, create_purchase_item
+from app.models.purchase import PurchaseItem, create_purchase_item, get_all_purchase_items
+
+
+def get_all_purchases(
+    user_id: str,
+) -> list[Purchase]:
+    purchase_items = get_all_purchase_items(user_id)
+    return [item.to_domain() for item in purchase_items]
 
 
 def create_purchase(
