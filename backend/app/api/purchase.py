@@ -8,7 +8,12 @@ from fastapi import APIRouter, Depends, status
 
 from app.api.deps import get_current_user_id
 from app.api.schemas.purchase import PurchaseCreateRequest, PurchasePutRequest, PurchaseResponse
-from app.services.purchase_service import create_purchase, get_all_purchases, put_purchase
+from app.services.purchase_service import (
+    create_purchase,
+    delete_purchase,
+    get_all_purchases,
+    put_purchase,
+)
 
 router = APIRouter(prefix="/purchases", tags=["purchases"])
 
@@ -53,3 +58,11 @@ def put_purchase_endpoint(
         is_temporary=request.is_temporary,
     )
     return PurchaseResponse.model_validate(purchase)
+
+
+@router.delete("/{purchase_id}", response_model=None, status_code=status.HTTP_204_NO_CONTENT)
+def delete_purchase_endpoint(
+    purchase_id: UUID,
+    user_id: str = Depends(get_current_user_id),
+) -> None:
+    delete_purchase(user_id, purchase_id)
