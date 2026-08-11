@@ -12,3 +12,9 @@ export async function createPurchase(
 	if (error) throw error;
 	return data;
 }
+
+export async function getAllPurchases(): Promise<PurchaseResponse[]> {
+	const { data, error } = await apiClient.GET("/purchases");
+	if (error) throw error;
+	return data;
+}

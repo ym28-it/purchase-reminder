@@ -11,7 +11,8 @@ export interface paths {
 			path?: never;
 			cookie?: never;
 		};
-		get?: never;
+		/** Get All Purchase Endpoint */
+		get: operations["get_all_purchase_endpoint_purchases_get"];
 		put?: never;
 		/** Create Purchase Endpoint */
 		post: operations["create_purchase_endpoint_purchases_post"];
@@ -108,6 +109,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+	get_all_purchase_endpoint_purchases_get: {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description Successful Response */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					"application/json": components["schemas"]["PurchaseResponse"][];
+				};
+			};
+		};
+	};
 	create_purchase_endpoint_purchases_post: {
 		parameters: {
 			query?: never;
