@@ -1,4 +1,3 @@
-from dataclasses import field
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -8,6 +7,7 @@ from app.models.purchase import (
     create_purchase_item,
     delete_purchase_item,
     get_all_purchase_items,
+    get_purchase_item,
     put_purchase_item,
 )
 
@@ -27,6 +27,7 @@ def create_purchase(
     stock: float,
     is_temporary: bool,
 ) -> Purchase:
+    now = datetime.now(UTC)
     purchase = Purchase(
         id=uuid4(),
         user_id=user_id,
@@ -35,8 +36,8 @@ def create_purchase(
         speed=speed,
         stock=stock,
         is_temporary=is_temporary,
-        created_at=field(default_factory=lambda: datetime.now(UTC)),
-        updated_at=field(default_factory=lambda: datetime.now(UTC)),
+        created_at=now,
+        updated_at=now,
     )
     purchase_item = PurchaseItem.from_domain(purchase=purchase)
     created_item = create_purchase_item(item=purchase_item)
@@ -52,6 +53,7 @@ def put_purchase(
     stock: float,
     is_temporary: bool,
 ) -> Purchase:
+    existing_item = get_purchase_item(user_id, id)
     purchase = Purchase(
         id=id,
         user_id=user_id,
@@ -60,8 +62,8 @@ def put_purchase(
         speed=speed,
         stock=stock,
         is_temporary=is_temporary,
-        created_at=field(default_factory=lambda: datetime.now(UTC)),
-        updated_at=field(default_factory=lambda: datetime.now(UTC)),
+        created_at=existing_item.created_at,
+        updated_at=datetime.now(UTC),
     )
     purchase_item = PurchaseItem.from_domain(purchase=purchase)
     put_item = put_purchase_item(item=purchase_item)

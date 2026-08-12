@@ -11,8 +11,8 @@ class PurchaseCreateRequest(BaseModel):
 
     name: str = Field(min_length=1)
     category: str = Field(min_length=1)
-    speed: float = Field(gt=0, description="消費スピード")
-    stock: float = Field(ge=0, description="現在の在庫")
+    speed: float = Field(gt=0, le=100, allow_inf_nan=False, description="消費スピード")
+    stock: float = Field(ge=0, le=100, allow_inf_nan=False, description="現在の在庫")
     is_temporary: bool = False
 
 
@@ -21,8 +21,8 @@ class PurchasePutRequest(BaseModel):
 
     name: str = Field(min_length=1)
     category: str = Field(min_length=1)
-    speed: float = Field(gt=0, description="消費スピード")
-    stock: float = Field(ge=0, description="現在の在庫")
+    speed: float = Field(gt=0, le=100, allow_inf_nan=False, description="消費スピード")
+    stock: float = Field(ge=0, le=100, allow_inf_nan=False, description="現在の在庫")
     is_temporary: bool = False
 
 

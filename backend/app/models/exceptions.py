@@ -23,5 +23,9 @@ class ItemAlreadyExistsError(PersistenceError):
     """すでに同じキーのアイテムが存在するため作成できない。"""
 
 
+class DuplicatePurchaseError(PersistenceError):
+    """同一ユーザー内に、同じname+categoryの組み合わせを持つ購入物が既に存在する。"""
+
+
 class ConditionalCheckFailedError(PersistenceError):
     """条件付き書き込みの条件が満たされなかった（競合更新など）。"""
