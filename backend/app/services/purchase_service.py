@@ -6,6 +6,7 @@ from app.domain.purchase import Purchase
 from app.models.purchase import (
     PurchaseItem,
     create_purchase_item,
+    delete_purchase_item,
     get_all_purchase_items,
     put_purchase_item,
 )
@@ -65,3 +66,10 @@ def put_purchase(
     purchase_item = PurchaseItem.from_domain(purchase=purchase)
     put_item = put_purchase_item(item=purchase_item)
     return put_item.to_domain()
+
+
+def delete_purchase(
+    user_id: str,
+    id: UUID,
+) -> None:
+    delete_purchase_item(user_id, id)

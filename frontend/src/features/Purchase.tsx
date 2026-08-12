@@ -1,4 +1,11 @@
-import { Loader2, Package, PackageOpen, Pencil, Plus } from "lucide-react";
+import {
+	Loader2,
+	Package,
+	PackageOpen,
+	Pencil,
+	Plus,
+	Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import type { PurchaseResponse } from "@/api/purchases";
 import { Badge } from "@/components/ui/badge";
@@ -12,12 +19,15 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { CreatePurchaseDialog } from "@/features/CreatePurchaseDialog";
+import { DeletePurchaseDialog } from "@/features/DeletePurchaseDialog";
 import { EditPurchaseDialog } from "@/features/EditPurchaseDialog";
 import { usePurchases } from "@/hooks/usePurchases";
 
 export function Purchase() {
 	const { data: purchases, isPending: isPurchasesPending } = usePurchases();
 	const [editingPurchase, setEditingPurchase] =
+		useState<PurchaseResponse | null>(null);
+	const [deletingPurchase, setDeletingPurchase] =
 		useState<PurchaseResponse | null>(null);
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
 
@@ -88,6 +98,15 @@ export function Purchase() {
 									>
 										<Pencil className="size-4" />
 									</Button>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon-sm"
+										aria-label="削除"
+										onClick={() => setDeletingPurchase(purchase)}
+									>
+										<Trash2 className="size-4" />
+									</Button>
 								</div>
 							</li>
 						))}
@@ -104,6 +123,13 @@ export function Purchase() {
 				purchase={editingPurchase}
 				onOpenChange={(open) => {
 					if (!open) setEditingPurchase(null);
+				}}
+			/>
+
+			<DeletePurchaseDialog
+				purchase={deletingPurchase}
+				onOpenChange={(open) => {
+					if (!open) setDeletingPurchase(null);
 				}}
 			/>
 		</div>

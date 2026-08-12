@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	createPurchase,
+	deletePurchase,
 	getAllPurchases,
 	type PurchasePutRequest,
 	putPurchase,
@@ -35,5 +36,14 @@ export function usePurchases() {
 	return useQuery({
 		queryKey: ["purchases"],
 		queryFn: getAllPurchases,
+	});
+}
+
+export function useDeletePurchase() {
+	return useMutation({
+		mutationFn: deletePurchase,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["purchases"] });
+		},
 	});
 }
