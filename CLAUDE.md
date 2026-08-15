@@ -74,7 +74,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### CI
 
-`.github/workflows/lint.yml` がmain pushとPRで、backendの `ruff check`/`ruff format --check` とfrontendの `bun run lint`/`bun run format -- --check` を実行する。
+main pushとPRで2つのワークフローが動く。
+
+- `.github/workflows/lint.yml` — backendの `ruff check`/`ruff format --check` とfrontendの `bun run lint`/`bun run format -- --check`
+- `.github/workflows/test.yml` — backendの `pytest` とfrontendの `vitest`。frontendはまだテストが無いため `--passWithNoTests` を付けている（テストを書き始めたら外す）
+
+統合テスト（DynamoDB Localが必要）を追加する際は、`test.yml` のbackendジョブに `amazon/dynamodb-local` のサービスコンテナを足す必要がある。
 
 ## Architecture
 
