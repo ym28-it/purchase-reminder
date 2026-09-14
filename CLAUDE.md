@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-このプロジェクトはまだごく初期の骨組み段階。`backend/app/{api,services,domain,models,auth}` 配下のファイルはディレクトリ構成のみ作られていて中身は空、`backend/main.py` もプレースホルダ。`backend/tests/{unit,integration}` にもまだテストがない。機能が実装済みと仮定せず、着手前に現状のファイル内容を確認すること。
+ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。DynamoDBの汎用モデル基盤には単体テストがあるが、purchase CRUD、services、API、frontendのテストは未整備。Cognito認証、購入タイミングのドメインロジック、通知、Terraform、デプロイ、E2Eは未実装。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
 
 ## 開発分担（仕様駆動）
 
@@ -49,11 +49,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 新規機能開発、および既存コードへのテスト追加は `docs/TDD-WORKFLOW.md` の手順に従う（仕様確定→論理テストケース→テスト→実装のTDDワークフロー）。他プロジェクトでも使う汎用テンプレートとして書いているため、手順の詳細はこのCLAUDE.mdではなくリンク先を参照すること。
 
+テストの選定と品質判定には `docs/MINIMUM-TDD-TEST-PRINCIPLES.md` を必ず適用し、論理テストケースと実行証跡は `docs/templates/minimum-tdd-test-plan.md` を基に記録する。
+
 このプロジェクトでの適用時の補足:
 
 - 仕様ファイルの置き場所: `docs/specs/<feature-slug>.md`（新規機能）
 - 論理テストケースファイルの置き場所: `docs/specs/<feature-slug>-test-cases.md`
-- `backend/docs/purchase-spec.md` / `frontend/docs/purchase-spec.md` は、TDD-WORKFLOW.md策定前に実装から逆算して作った例外的なドキュメント（ケースBの手順を経ずに作られたたたき台）。今後このパターンで新規に仕様書を作る場合もケースBの手順（実装から独立した仮説→実装との突き合わせ→確認事項の個別確認）を通すこと
+- 現在のpurchase CRUDは仕様書と機能テストがない既存実装なので、最初の整備ではTDD-WORKFLOW.mdのケースBを適用する
 - 実装コードとテストコードはレイヤーを問わずAIが担当する。人間は仕様・論理テストケース・テスト結果を確認し、実装が仕様に適合しているかを最終判断する
 
 ## Commands
