@@ -110,9 +110,7 @@ def put_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -> P
     return item
 
 
-def delete_purchase_item(
-    user_id: str, id: UUID, *, table_name: str | None = None
-) -> None:
+def delete_purchase_item(user_id: str, id: UUID, *, table_name: str | None = None) -> None:
     """購入物を削除する。
 
     同じキー（``user_id``+``id``）のアイテムが存在しなければ``ItemNotFoundError``。
