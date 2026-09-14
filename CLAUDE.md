@@ -47,14 +47,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## テスト・開発フロー
 
-新規機能開発、および既存コードへのテスト追加は `docs/TDD-WORKFLOW.md` の手順に従う（仕様確定→論理テストケース→テスト→実装のTDDワークフロー）。他プロジェクトでも使う汎用テンプレートとして書いているため、手順の詳細はこのCLAUDE.mdではなくリンク先を参照すること。
+機能開発は `docs/VERTICAL-SLICE-DEVELOPMENT-WORKFLOW.md` に従い、機能ごとの最小垂直スライスとして、仕様作成から実装後テスト・統合テスト・E2E・全体検証までを1サイクルで完了する。フロントエンドだけ、バックエンドだけを通常の開発単位として先行実装しない。
+
+実装前の最小TDDには `docs/TDD-WORKFLOW.md` を適用する。TDD Greenは機能全体のテスト完了ではなく、その後に実装後テスト分析へ進む。
 
 テストの選定と品質判定には `docs/MINIMUM-TDD-TEST-PRINCIPLES.md` を必ず適用し、論理テストケースと実行証跡は `docs/templates/minimum-tdd-test-plan.md` を基に記録する。
+
+実装後のカバレッジ分析、追加単体テスト、統合テスト、E2E、全体検証は `docs/templates/post-implementation-test-report.md` を基に記録する。
 
 このプロジェクトでの適用時の補足:
 
 - 仕様ファイルの置き場所: `docs/specs/<feature-slug>.md`（新規機能）
 - 論理テストケースファイルの置き場所: `docs/specs/<feature-slug>-test-cases.md`
+- 実装前TDD計画: `docs/specs/<feature-slug>-test-plan.md`
+- 実装後テストレポート: `docs/specs/<feature-slug>-post-test-report.md`
 - 現在のpurchase CRUDは仕様書と機能テストがない既存実装なので、最初の整備ではTDD-WORKFLOW.mdのケースBを適用する
 - 実装コードとテストコードはレイヤーを問わずAIが担当する。人間は仕様・論理テストケース・テスト結果を確認し、実装が仕様に適合しているかを最終判断する
 
@@ -90,7 +96,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 main pushとPRで2つのワークフローが動く。
 
-- `.github/workflows/lint.yml` — backendの `ruff check`/`ruff format --check` とfrontendの `bun run lint`/`bun run format -- --check`
+- `.github/workflows/lint.yml` — backendの `ruff check`/`ruff format --check` とfrontendの `bun run lint`/`bun run format:check`
 - `.github/workflows/test.yml` — backendの `pytest` とfrontendの `vitest`。frontendはまだテストが無いため `--passWithNoTests` を付けている（テストを書き始めたら外す）
 
 統合テスト（DynamoDB Localが必要）を追加する際は、`test.yml` のbackendジョブに `amazon/dynamodb-local` のサービスコンテナを足す必要がある。
