@@ -77,6 +77,7 @@
 |---|---|
 | `docs/specs/<feature-slug>.md` | 機能仕様のsource of truth |
 | `docs/TDD-WORKFLOW.md` | 実装前の最小TDDとRed-Green-Refactorの手順 |
+| `docs/THREE-AGENT-DEVELOPMENT-WORKFLOW.md` | 契約、テスト、実装を分離する3エージェント運用 |
 | `docs/MINIMUM-TDD-TEST-PRINCIPLES.md` | 最小TDDテストの選定・品質判断 |
 | `docs/specs/<feature-slug>-test-cases.md` | 実装非依存の論理テストケース全体。テスト期待動作の唯一の真実 |
 | `docs/CORE-CONTRACT-SELECTION.md` | 中心的契約候補の抽出・承認手順 |
@@ -291,6 +292,8 @@ AIは承認済み論理テストケースの全Test Case IDを、TDD、単体、
 - [ ] 人間がスライスの完了を確認している
 
 ## 8. 人間とAIの責務
+
+この節はAI全体の責務を示す。3エージェント運用を適用する場合は、[3エージェント開発運用](./THREE-AGENT-DEVELOPMENT-WORKFLOW.md)に従って契約オーナー、テストエージェント、実装エージェントへ分割し、各エージェントは他の責務へ越境しない。
 
 ### 人間
 
