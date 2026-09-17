@@ -27,18 +27,20 @@
 
 | ID | 不足情報 | 影響する契約・Test Case ID | 分類 | 必要な確認 | 状態 |
 |---|---|---|---|---|---|
-| GAP-001 | TDDを実行する具体的な既存テスト基盤と認証主体の注入方法 | 全契約 | Important | Core Contract Gate通過後のBaselineで確認し、環境不備なら`ENVIRONMENT_FAILURE`または`BLOCKED_TESTABILITY`として停止する | Open |
+| GAP-001 | 認証主体のテスト時注入方法 | PURC-CORE-003 | Important | FastAPIのdependency overrideで現在利用者を差し替える。Cognito自体は対象外とする | Resolved |
+| GAP-002 | 現在のWork実行環境にDockerがなく、DynamoDB Localを起動できない | PURC-CORE-001, PURC-CORE-003, PURC-CORE-004 | Important | Red実行前にDynamoDB Localを利用できる実行環境を用意する。代替エミュレーターへの変更は契約オーナーの承認なしに行わない | Open |
+| GAP-003 | Frontend buildに必要な`src/routeTree.gen`が基準コミットに存在せず、buildが失敗する | PURC-CORE-001, PURC-CORE-002 | Important | 今回のRedとは分離する。Green Gateまでに生成手順または生成物を整備し、buildを成功させる | Open |
 
-GAP-001は仕様上の期待結果を変えないため、Core Contract GateのBlocking事項にはしない。
+GAP-002とGAP-003は仕様上の期待結果を変えないため、Core Contract GateのBlocking事項にはしない。ただし、GAP-002を解消できず統合テストを実行できない場合、テストエージェントは`ENVIRONMENT_FAILURE`として停止する。
 
-## 中心的契約候補
+## 中心的契約
 
 | Contract ID | 契約 | 仕様ID | 対応Test Case ID | 該当する選定条件 | 既存保護 | TDD適格性・Red例外 | AIの判定 |
 |---|---|---|---|---|---|---|---|
-| PURC-CORE-001 | 有効な入力による登録操作が、現在の利用者に紐づく1件の永続化と、最新状態を再取得した一覧表示まで一気通貫で成立する | PURC-001, PURC-002, PURC-005, PURC-006, PURC-008, PURC-009, PURC-011, PURC-012 | PURC-001-TC1, PURC-002-TC1, PURC-005-TC1, PURC-006-TC1, PURC-008-TC1, PURC-008-TC2, PURC-008-TC3, PURC-009-TC1, PURC-009-TC2, PURC-011-TC1, PURC-012-TC1 | 1, 2, 4, 5 | Baseline前のため未確認 | 適格。既存実装が既に満たす部分は、Baselineの証跡を根拠にCharacterization TestまたはRed例外となり得る | 候補 |
-| PURC-CORE-002 | フロントエンドとAPIが同じ入力領域を守り、仕様外の値を補正せず拒否し、不正な購入物を永続化しない | PURC-003, PURC-004 | PURC-003-TC1, PURC-003-TC2, PURC-003-TC3, PURC-004-TC1, PURC-004-TC2, PURC-004-TC3, PURC-004-TC4, PURC-004-TC5, PURC-004-TC6, PURC-004-TC7, PURC-004-TC8, PURC-004-TC9, PURC-004-TC10, PURC-004-TC11, PURC-004-TC12 | 3, 4, 5 | Baseline前のため未確認 | 適格。全境界値を事前TDDへ入れず、変更目的と重大反例を識別する代表ケースはCore承認後に選ぶ | 候補 |
-| PURC-CORE-003 | 所有者はクライアント入力ではなくサーバー側の現在利用者から決まり、登録・一覧取得の両方で他利用者へデータが混在または移転しない | PURC-007, PURC-019 | PURC-007-TC1, PURC-019-TC1, PURC-019-TC2 | 3, 4, 5 | Baseline前のため未確認 | 適格。認証基盤そのものではなく、確定済みの利用者識別結果を境界入力として決定的に検証する | 候補 |
-| PURC-CORE-004 | 同一利用者の名前・カテゴリ完全一致を、同時要求を含め永続化境界で1件に制限し、異なる表記または異なる利用者のデータは誤って重複扱いしない | PURC-014 | PURC-014-TC1, PURC-014-TC2, PURC-014-TC3, PURC-014-TC4, PURC-014-TC5, PURC-014-TC6, PURC-014-TC7, PURC-014-TC8 | 3, 4, 5 | Baseline前のため未確認 | 適格。通常の重複、所有者スコープ、同時要求の重大反例を識別する最小構成はCore承認後に選ぶ | 候補 |
+| PURC-CORE-001 | 有効な入力による登録操作が、現在の利用者に紐づく1件の永続化と、最新状態を再取得した一覧表示まで一気通貫で成立する | PURC-001, PURC-002, PURC-005, PURC-006, PURC-008, PURC-009, PURC-011, PURC-012 | PURC-001-TC1, PURC-002-TC1, PURC-005-TC1, PURC-006-TC1, PURC-008-TC1, PURC-008-TC2, PURC-008-TC3, PURC-009-TC1, PURC-009-TC2, PURC-011-TC1, PURC-012-TC1 | 1, 2, 4, 5 | 直接保護なし | 適格。API・永続化統合とFrontendコンポーネント統合で識別する | Approved |
+| PURC-CORE-002 | フロントエンドとAPIが同じ入力領域を守り、仕様外の値を補正せず拒否し、不正な購入物を永続化しない | PURC-003, PURC-004 | PURC-003-TC1, PURC-003-TC2, PURC-003-TC3, PURC-004-TC1, PURC-004-TC2, PURC-004-TC3, PURC-004-TC4, PURC-004-TC5, PURC-004-TC6, PURC-004-TC7, PURC-004-TC8, PURC-004-TC9, PURC-004-TC10, PURC-004-TC11, PURC-004-TC12 | 3, 4, 5 | 直接保護なし | 適格。全境界値を事前TDDへ入れず、変更目的と重大反例を代表ケースで識別する | Approved |
+| PURC-CORE-003 | 所有者はクライアント入力ではなくサーバー側の現在利用者から決まり、登録・一覧取得の両方で他利用者へデータが混在または移転しない | PURC-007, PURC-019 | PURC-007-TC1, PURC-019-TC1, PURC-019-TC2 | 3, 4, 5 | 直接保護なし | 適格。認証基盤そのものではなく、確定済みの利用者識別結果を境界入力として検証する | Approved |
+| PURC-CORE-004 | 同一利用者の名前・カテゴリ完全一致を、同時要求を含め永続化境界で1件に制限し、異なる表記または異なる利用者のデータは誤って重複扱いしない | PURC-014 | PURC-014-TC1, PURC-014-TC2, PURC-014-TC3, PURC-014-TC4, PURC-014-TC5, PURC-014-TC6, PURC-014-TC7, PURC-014-TC8 | 3, 4, 5 | 直接保護なし | 適格。同時要求の重大反例と利用者スコープの代表回帰を分けて識別する | Approved |
 
 選定条件:
 
@@ -110,48 +112,87 @@ Core Contract Gate通過前に、最小TDDテストセット、テストコー�
 
 ## Baseline
 
-Core Contract Gate通過後、最初のテストコードまたは実装コード変更前に確認するため、現時点では未実施。
+Core Contract Gate通過後、プロダクトコードとテストコードを変更していない`main`で確認した。
 
-- 基準コミットSHA: Core Contract Gate通過後に対象ブランチのHEADを記録する
-- 実行コマンド: 未確定
-- 結果: Not run
-- 既存失敗: 未確認
-- 未実行の検証と理由: Core Contract Gate前のため未実行
-- 既存失敗を今回の変更から分離できるか: 未判定
-- 分離できない場合の判断: 未記入
+- 基準コミットSHA: `69a00dc62c32ec80af59a7ad5875e564d039d57e`
+- 実行日: 2026-09-17
+- 既存失敗を今回の変更から分離できるか: Yes
+
+| 対象 | 実行コマンド | 結果 | 判定 |
+|---|---|---|---|
+| Backend依存関係 | `uv sync --frozen` | Pass | Python 3.14環境とロック済み依存関係を使用できる |
+| Backend tests | `uv run pytest -q` | Pass（53 passed） | 既存テストはすべて成功 |
+| Backend lint | `uv run ruff check .` | Pass | 既存失敗なし |
+| Backend format | `uv run ruff format --check .` | Pass（38 files） | 既存失敗なし |
+| Frontend依存関係 | `bun install --frozen-lockfile` | Pass | Work環境では`npx -y bun`でBun 1.4.2を起動 |
+| Frontend tests | `bun run test --run` | Fail（No test files found） | テスト失敗ではなく、既存Frontendテストが0件であることによる終了コード1 |
+| Frontend lint | `bun run lint` | Pass（36 files） | 既存失敗なし |
+| Frontend format | `bun run format:check` | Pass（31 files） | 既存失敗なし |
+| Frontend build | `bun run build` | Fail | `src/routeTree.gen`未生成と、それに伴うroute型エラー。今回のRedより前から存在する |
+| DynamoDB Local統合 | `docker compose`を用いる統合検証 | Not run | Work環境にDockerコマンドが存在しない |
+
+### Baselineの扱い
+
+- Backend既存テスト、Backend/FrontendのLint・formatは今回のRedおよび回帰判定に利用できる。
+- Frontend testの終了コード1はテスト未作成によるものであり、新しいTDDテスト追加後は通常のPass/Failで判定する。
+- Frontend buildの既存失敗は今回追加するテストのValid Redとして扱わない。Green Gateまでに別途解消する。
+- DynamoDB Localを使う統合テストはこの環境では実行していない。テストエージェントはRed確認前に実行可能性を確認する。
+- 基準コミット以後に`main`のプロダクトコードまたはテスト基盤が変わった場合、Test Plan Gate承認前にBaselineを再実行する。
 
 ## 既存テストによる保護
 
-Baseline前のため未確認。各Contract IDについて、既存テストの実テスト名、結果、十分性、新規テスト要否をBaseline後に記録する。
+| Contract ID | 既存テスト | Baseline結果 | 十分か | 新規テスト | 根拠 |
+|---|---|---|---|---|---|
+| PURC-CORE-001 | なし | Backendの無関係なモデル単体テスト53件のみPass | No | Add | API登録、永続化、再取得、Frontend一覧反映を検証する既存テストがない |
+| PURC-CORE-002 | なし | Frontendテスト0件。BackendにもPurchaseスキーマテストなし | No | Add | FrontendとAPI双方の入力領域を保証できない |
+| PURC-CORE-003 | なし | 認証依存と利用者分離を検証する既存テストなし | No | Add | クライアント入力による所有者変更と他利用者一覧への混在を検出できない |
+| PURC-CORE-004 | なし | 名前・カテゴリの重複と同時要求を検証する既存テストなし | No | Add | 現在の条件付き書き込みはUUIDキーの重複だけを防ぎ、名前・カテゴリ重複を保護していない |
 
 ## 最小TDDテストセット
 
-Core Contract Gate通過前のため未確定。
+以下をTest Plan Gateの承認候補とする。実テスト名はTest Case IDへ追跡可能にし、同じ行に記載した複数IDを1つのシナリオで検証してよい。
 
-承認後、各中心的契約について次の順で最小セットを選ぶ。
+| Plan ID | Test Case ID | Contract ID | 役割 | テストレベル | 実テスト予定場所 | 変更前の期待状態 | 選定根拠 |
+|---|---|---|---|---|---|---|---|
+| PURC-TDD-001 | PURC-005-TC1, PURC-008-TC1, PURC-008-TC2, PURC-008-TC3, PURC-009-TC1, PURC-004-TC12 | PURC-CORE-001, PURC-CORE-002 | 変更目的 | API・永続化統合 | `backend/tests/integration/api/test_purchase_create.py` | Red | 現在利用者として`speed=0`を含む有効入力をPOSTし、201応答とレスポンス契約を確認後、GETで同じID・内容を再取得する。現在はAPIが`speed=0`を拒否するため、契約不成立によるRedを期待する |
+| PURC-TDD-002 | PURC-011-TC1, PURC-012-TC1, PURC-004-TC12 | PURC-CORE-001, PURC-CORE-002 | 変更目的 | Frontendコンポーネント統合 | `frontend/src/features/Purchase.test.tsx` | Red | `speed=0`を含む有効入力を画面から登録し、成功後の再取得結果として名前・カテゴリ・消費スピード・在庫が一覧に表示されることを検証する。現在は`speed=0`が送信できず、一覧にも消費スピードがない |
+| PURC-TDD-003 | PURC-003-TC1 | PURC-CORE-002 | 重大反例 | Frontendコンポーネント | `frontend/src/features/CreatePurchaseDialog.test.tsx` | Red | 代表的な仕様違反として空白文字だけの名前を入力し、項目エラーが表示され登録要求が送信されないことを検証する。残りの境界値は実装後テストへ引き継ぐ |
+| PURC-TDD-004 | PURC-003-TC2 | PURC-CORE-002 | 重大反例 | API・永続化統合 | `backend/tests/integration/api/test_purchase_create.py` | Red | APIへ空白文字だけの名前を直接送信し、422、項目識別可能なエラー、永続化なしを検証する。クライアント検証を迂回しても不正データが残らないことを固定する |
+| PURC-TDD-005 | PURC-007-TC1, PURC-019-TC2 | PURC-CORE-003 | 重大反例 | API・永続化統合 | `backend/tests/integration/api/test_purchase_create.py` | Green（Red例外） | 利用者Aの要求へ利用者BのIDを混入してもAに保存され、Bの一覧へ表示されないことを検証する。既存のdependencyとリクエストスキーマが満たす可能性が高いretrofitの代表回帰として、最初からGreenなら証跡を記録する |
+| PURC-TDD-006 | PURC-014-TC8 | PURC-CORE-004 | 重大反例 | API・DynamoDB統合 | `backend/tests/integration/api/test_purchase_create.py` | Red | 同一利用者・同一名前・同一カテゴリの同時要求で1件だけが201、残りが409となり、永続状態も1件であることを検証する。競合時にも破れない永続化制約を要求する |
+| PURC-TDD-007 | PURC-014-TC7 | PURC-CORE-004 | 代表回帰 | API・DynamoDB統合 | `backend/tests/integration/api/test_purchase_create.py` | Green（Red例外） | 異なる利用者は同じ名前・カテゴリをそれぞれ登録できることを検証する。重複防止の実装で利用者スコープを失う回帰を防ぐ。現実装では最初からGreenとなる可能性が高い |
 
-1. 既存テストだけで契約を識別できるか確認する
-2. 変更目的を識別する代表テストを選ぶ
-3. データ不整合・所有権逸脱・同時重複の重大反例を必要最小限追加する
-4. 境界値、UI状態、エラー表示の網羅は実装後テストへ残す
-5. retrofitで最初からGreenになる場合は、独立した仕様根拠とBaseline結果をRed例外として記録する
+### 最小性の根拠
+
+- `PURC-CORE-001`は、APIから永続化・再取得までと、UI登録から一覧反映までの2つの接続点で識別する。事前TDDでPlaywright環境まで新設するより、欠陥箇所を特定しやすい2テストへ分ける。
+- `PURC-CORE-002`はFrontendとAPIの独立した検証が仕様で要求されるため、それぞれ最低1つの不正入力を置く。正常系では、仕様決定上重要で現実装と異なる`speed=0`を`PURC-TDD-001`と`PURC-TDD-002`で兼ねる。
+- `PURC-CORE-003`は、所有者の決定と一覧分離を1つの複合シナリオで識別する。
+- `PURC-CORE-004`は、同時重複を防ぐ制約と、制約を利用者単位に限定する回帰が独立しているため2テストとする。
+- 文字数上限、すべての数値境界、表記差、失敗時UI状態などは中心契約を追加で識別しないため、実装後テストへ残す。
+- ブラウザから実DynamoDBまでの代表正常系E2Eは省略しない。TDD Green後、`PURC-009-TC2`を含む実装後テストとして追加する。
+
+### Red例外
+
+- `PURC-TDD-005`と`PURC-TDD-007`は、新しい制約を実装する際に壊しやすい既存挙動を固定する代表回帰である。retrofitのため、最初からGreenでも正当なRed例外とする。
+- Red例外はテストエージェントの推測で確定しない。対象テストを変更前コードで実行し、期待どおりGreenである証跡をTDD実行記録へ残す。
+- その他のテストが最初からGreenになった場合は自動的に例外扱いせず、既存実装が契約全体を満たすか確認して`INVALID_RED`または追加のRed例外判断として契約オーナーへ戻す。
 
 ## Test Plan Gate
 
-- [ ] Baselineを確認し、既存失敗を分離した
-- [ ] すべての承認済み中心的契約に保護方針がある
-- [ ] 各テストが対応するContract IDとTest Case IDを持つ
-- [ ] 最小テストセットが変更目的と重大リスクを識別できる
-- [ ] 既存テストで省略する場合の根拠がある
-- [ ] Red例外の理由が妥当である
-- [ ] 実装詳細を不必要に固定していない
+- [x] Baselineを確認し、既存失敗を分離した
+- [x] すべての承認済み中心的契約に保護方針がある
+- [x] 各テストが対応するContract IDとTest Case IDを持つ
+- [x] 最小テストセットが変更目的と重大リスクを識別できる
+- [x] 既存テストで省略する場合の根拠がある（今回は既存保護による新規テスト省略なし）
+- [x] Red例外の理由が妥当である
+- [x] 実装詳細を不必要に固定していない
 - [ ] 人間がテストコード作成を承認した
 
 ### 承認記録
 
-- 承認者: 未記入
+- 承認者: 未承認
 - 承認日: 未記入
-- 備考: 未記入
+- 備考: GAP-002（DynamoDB Local実行環境）を含めてレビューする。
 
 ## TDD実行記録
 
