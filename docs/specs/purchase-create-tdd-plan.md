@@ -1,4 +1,4 @@
-# 購入物登録・一覧反映 TDD計画（Draft）
+# 購入物登録・一覧反映 TDD計画
 
 ## メタデータ
 
@@ -8,7 +8,7 @@
 | 論理テストケースSSOT | `docs/specs/purchase-create-test-cases.md` |
 | 論理テストケースの参照コミット | `69a00dc62c32ec80af59a7ad5875e564d039d57e` |
 | 変更単位 | 購入物を1件登録し、現在の利用者に永続化して一覧へ反映する |
-| 文書状態 | Draft |
+| 文書状態 | Core Approved |
 
 論理テストケースの期待結果をこの文書で再定義しない。期待結果はTest Case IDを通じてSSOTを参照する。
 
@@ -96,15 +96,15 @@ GAP-001は仕様上の期待結果を変えないため、Core Contract GateのB
 - [x] 候補外の理由と暫定的な検証先が記録されている
 - [x] AIが仕様上の判断を暗黙に追加していない
 - [x] Blockingな判断保留が残っていない
-- [ ] 人間が中心的契約と対応Test Case IDを承認した
+- [x] 人間が中心的契約と対応Test Case IDを承認した
 
 ### 承認記録
 
-- 承認したContract ID: 未承認
-- 修正・除外した候補: 未記入
-- 承認者: 未記入
-- 承認日: 未記入
-- 備考: 未記入
+- 承認したContract ID: `PURC-CORE-001`, `PURC-CORE-002`, `PURC-CORE-003`, `PURC-CORE-004`
+- 修正・除外した候補: なし
+- 承認者: ym28-it
+- 承認日: 2026-09-17
+- 備考: Workチャット上で計画案を承認。Core Contract Gate通過として記録する。
 
 Core Contract Gate通過前に、最小TDDテストセット、テストコード、実装コードを確定しない。
 
