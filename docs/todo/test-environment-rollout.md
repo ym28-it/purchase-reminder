@@ -10,11 +10,11 @@
 
 | 項目 | 値 |
 |---|---|
-| 更新日 | 2026-09-18 |
+| 更新日 | 2026-09-19 |
 | 調査対象コミット | `69a00dc62c32ec80af59a7ad5875e564d039d57e` |
 | 対象 | ChatGPT Work、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | Draft / 実装前 |
+| 状態 | Step 0契約承認済み / 実装前 |
 
 ## 2. 基本方針
 
@@ -23,7 +23,7 @@ SQLiteやPostgreSQLで代替せず、WorkとPRではAWS公式のDynamoDB Local�
 | 実行場所 | DB | 起動方法 | 主な検証 |
 |---|---|---|---|
 | ChatGPT Work | DynamoDB Local | Java 17以上でJARを直接起動 | TDD、models/API integration、実装中検証 |
-| Pull Request | DynamoDB Local | Workと同じラッパー、または公式コンテナ | unit、component、integration、主要E2E |
+| Pull Request | DynamoDB Local | Workと同じJAR実行ラッパー | unit、component、integration、主要E2E |
 | `main`マージ後 | AWS staging DynamoDB | Terraformで管理 | IAM、デプロイ、smoke、AWS固有挙動、重要E2E |
 | production | AWS DynamoDB | Terraformで管理 | デプロイ前後の最小確認 |
 
@@ -73,22 +73,24 @@ SQLiteやPostgreSQLで代替せず、WorkとPRではAWS公式のDynamoDB Local�
 
 ### 4.1 DynamoDB Local
 
-- AWSが推奨するDynamoDB Local v3系を使用する。
-- 採用バージョン、公式配布URL、SHA-256をロックファイルへ記録する。
-- `latest` URLから毎回取得したchecksumを無条件に信用せず、レビュー済みの期待SHA-256と照合する。
+- DynamoDB Local `3.3.1`を使用する。
+- 公式配布URLは`https://d1ni2b6xgvw0s0.cloudfront.net/v2.x/dynamodb_local_latest.tar.gz`とする。
+- 配布アーカイブの期待SHA-256は`f80bcec477f85f57e2c77f8d54aa6b672a8403fceff0c450560aee1cf6c21163`とする。
+- 実行前にアーカイブのSHA-256とJARの`-version`出力（`3.3.1`）を検証する。
+- `latest` URL側のchecksumを実行時の信頼元にせず、レビュー済みの期待SHA-256と照合する。
 - バージョン更新はロックファイルを変更する専用PRで行う。
 - JAR、native library、DBファイル、PID、ログはGit管理しない。
 
-ロックファイル候補:
+ロックファイル:
 
 ```text
 backend/dynamodb-local.lock.json
 ```
 
-キャッシュ候補:
+キャッシュ:
 
 ```text
-.cache/dynamodb-local/<version>/
+.cache/dynamodb-local/3.3.1/
 ```
 
 ### 4.2 起動モード
@@ -104,6 +106,8 @@ java \
   -port <port> \
   -disableTelemetry
 ```
+
+自動テストでは、ラッパーがpytestセッションの開始前にDynamoDB Localを1回だけ起動し、子コマンド終了後に停止する。pytest fixtureはプロセスを起動・停止せず、ラッパーが用意した接続先を使用する。ラッパーを介さずintegration testを実行した場合は`ENVIRONMENT_FAILURE`として停止する。
 
 手動デバッグで状態保持が必要な場合だけ、`-inMemory`を外して専用の`-dbPath`を指定する。
 
@@ -153,7 +157,17 @@ AWS_EC2_METADATA_DISABLED=true
 
 fixtureは環境変数設定後かつ最初のDynamoDBアクセス前に、これらのキャッシュを明示的にクリアする。teardownでも再度クリアし、別テストや別endpointへ状態を漏らさない。
 
-### 5.3 Ready check
+### 5.3 テストセッションとデータ分離
+
+- DynamoDB Localプロセスはpytestセッション単位で1回起動する。
+- テーブル名は`purchase-reminder-test-<session-id>`とし、セッションごとに一意、同一セッション内では固定とする。
+- 各テストの開始前にテスト専用テーブルを削除し、既存の`MAIN_TABLE_SCHEMA`から再作成する。
+- 再作成したテーブルは空の状態とし、共通の初期データを投入しない。
+- 各テストが必要なデータをArrange段階で作成する。
+- 初期実装では並列実行を対象外とする。
+- 作成、削除、`DescribeTable`の失敗は機能テスト失敗ではなく`ENVIRONMENT_FAILURE`として扱う。
+
+### 5.4 Ready check
 
 portが開いていることだけをready判定にしない。
 
@@ -168,12 +182,13 @@ portが開いていることだけをready判定にしない。
 
 ### Step 0: 文書と基準コミットを固定する
 
-- [ ] PR #14のTDD計画をマージする
-- [ ] PR #15を最新の`main`へ追従させる
-- [ ] DynamoDB LocalをWork・PRの共通DBとする方針を人間が承認する
-- [ ] v3系の具体的なバージョンとSHA-256を決める
-- [ ] port、キャッシュ場所、テスト用table prefixを決める
-- [ ] Environment Gateの判定項目を承認する
+- [x] PR #14のTDD計画をマージする
+- [x] PR #15を最新の`main`へ追従させる
+- [x] DynamoDB LocalをWork・PRの共通DBとする方針を人間が承認する
+- [x] DynamoDB Local 3.3.1とSHA-256を固定する
+- [x] port、キャッシュ場所、テスト用table prefixを固定する
+- [x] pytestセッション、テーブル再作成、空の初期状態を固定する
+- [x] Environment Gateの判定項目を承認する
 
 完了条件: 環境仕様と基準コミットが固定されている。
 
@@ -227,7 +242,10 @@ backend/pyproject.toml
 
 - [ ] `integration` markerを登録する
 - [ ] DB不要のテストとDB統合テストを別コマンドで実行できるようにする
-- [ ] セッションごとに一意なテーブル名を作る
+- [ ] DynamoDB Localプロセスはセッション開始前にラッパーが1回だけ起動する
+- [ ] セッションごとに一意なテーブル名を作り、同一セッション内では固定する
+- [ ] 各テスト前にテーブルを削除・再作成し、空の状態から開始する
+- [ ] テストデータは各テストのArrange段階で作成する
 - [ ] 安全性契約をSDK呼び出し前に検査する
 - [ ] 設定・resource・tableのキャッシュを開始前後にクリアする
 - [ ] 既存のテーブルschema生成処理を再利用する
@@ -255,7 +273,7 @@ backend/pyproject.toml
 |---|---|
 | Java version | 17以上 |
 | 配布物checksum | ロックファイルと一致 |
-| DynamoDB Local version | 承認済みv3系 |
+| DynamoDB Local version | 3.3.1 |
 | API ready check | Pass |
 | テーブル作成・DescribeTable | Pass |
 | 環境スモーク | Pass |
@@ -398,30 +416,29 @@ test: complete purchase creation post-implementation verification
 ### TDD開始前
 
 1. PR #15: 環境構築計画
-2. Work用DynamoDB Localランタイム、fail-closed検査、環境スモーク
-3. pytest integration fixtureとmarker
+2. Work用DynamoDB Localランタイム、fail-closed検査、pytest integration fixture、marker、環境スモークを1つの環境整備PRとして実装
 
-2と3は、変更量が小さく同時に検証しないと価値が成立しない場合、1つの環境整備PRへまとめてよい。
+ランタイムラッパーとfixtureは一体でEnvironment Gateを成立させるため、別PRには分割しない。
 
 ### TDD開始後
 
-4. 承認済み購入物登録TDDテストとValid Red
-5. 購入物登録の垂直スライス実装とTDD Green
-6. 実装後テストと代表E2E
-7. GitHub Actions integration / E2E
+3. 承認済み購入物登録TDDテストとValid Red
+4. 購入物登録の垂直スライス実装とTDD Green
+5. 実装後テストと代表E2E
+6. GitHub Actions integration / E2E
 
 ### 後続
 
-8. AWS stagingのTerraformとOIDC
-9. Backend/Frontendのstaging deploy
-10. staging smoke・重要E2E
+7. AWS stagingのTerraformとOIDC
+8. Backend/Frontendのstaging deploy
+9. staging smoke・重要E2E
 
 ## 13. TDD開始前の最終チェックリスト
 
 - [ ] PR #14がマージ済み
 - [ ] PR #15がマージ済み
 - [ ] Work用環境整備PRがマージ済み
-- [ ] DynamoDB Local v3系とSHA-256が固定済み
+- [ ] DynamoDB Local 3.3.1とSHA-256がロックファイルに固定済み
 - [ ] fail-closed検査が自動テスト済み
 - [ ] APIレベルready checkが成功
 - [ ] pytest integration fixtureが実AWSへ接続しない
