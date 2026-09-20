@@ -20,6 +20,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 購入物登録の機能TDDを開始する前に、[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)のStep 1〜3を実装し、Work Environment Gateを通過させる。計画書をこの作業のsource of truthとし、Environment Gateが人間に承認されるまで購入物登録の機能テストとプロダクトコードを変更しない。
 
+この作業は、Claude Codeでは`/setup-test-environment`、対応するWork環境では`$setup-test-environment` Skillを明示的に呼び出して開始する。Skillは環境構築と検証だけを担当し、Environment Gate通過後も人間の承認なしに機能TDDへ進まない。
+
 ## 開発分担（仕様駆動）
 
 このプロジェクトでは、実装レイヤーごとに人間とAIの担当を分けない。人間とAIが共同でMarkdown形式の仕様を確定し、AIがその仕様を根拠として、すべてのテストコード・アプリケーションコード・インフラコードを実装する。
