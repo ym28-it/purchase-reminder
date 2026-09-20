@@ -16,6 +16,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。DynamoDBの汎用モデル基盤には単体テストがあるが、purchase CRUD、services、API、frontendのテストは未整備。Cognito認証、購入タイミングのドメインロジック、通知、Terraform、デプロイ、E2Eは未実装。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
 
+### 現在の優先作業: テスト環境構築
+
+購入物登録の機能TDDを開始する前に、[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)のStep 1〜3を実装し、Work Environment Gateを通過させる。計画書をこの作業のsource of truthとし、Environment Gateが人間に承認されるまで購入物登録の機能テストとプロダクトコードを変更しない。
+
+この作業は、Claude Codeでは`/setup-test-environment`、対応するWork環境では`$setup-test-environment` Skillを明示的に呼び出して開始する。Skillは環境構築と検証だけを担当し、Environment Gate通過後も人間の承認なしに機能TDDへ進まない。
+
 ## 開発分担（仕様駆動）
 
 このプロジェクトでは、実装レイヤーごとに人間とAIの担当を分けない。人間とAIが共同でMarkdown形式の仕様を確定し、AIがその仕様を根拠として、すべてのテストコード・アプリケーションコード・インフラコードを実装する。
@@ -96,12 +102,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### CI
 
-main pushとPRで2つのワークフローが動く。
+現在はmain pushとPRで次の2つのワークフローが動く。
 
 - `.github/workflows/lint.yml` — backendの `ruff check`/`ruff format --check` とfrontendの `bun run lint`/`bun run format:check`
-- `.github/workflows/test.yml` — backendの `pytest` とfrontendの `vitest`。frontendはまだテストが無いため `--passWithNoTests` を付けている（テストを書き始めたら外す）
+- `.github/workflows/test.yml` — backendのunit testとfrontendのVitest。frontendはまだテストが無いため `--passWithNoTests` を付けている（テストを書き始めたら外す）
 
-統合テスト（DynamoDB Localが必要）を追加する際は、`test.yml` のbackendジョブに `amazon/dynamodb-local` のサービスコンテナを足す必要がある。
+DynamoDB Localを使うintegration testは、`test.yml`のunit testへ混在させない。[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)に従い、Workと同じJava/JAR実行ラッパーを`.github/workflows/integration.yml`から呼び出し、unitとintegrationを別checkとして表示する。Actions固有のサービスコンテナ起動処理は追加しない。E2EはTDD Green後に独立した`e2e.yml`として追加する。
 
 ## Architecture
 
