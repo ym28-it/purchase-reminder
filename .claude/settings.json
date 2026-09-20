@@ -1,0 +1,5 @@
+{
+  "skillOverrides": {
+    "setup-test-environment": "user-invocable-only"
+  }
+}

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Set Up Test Environment"
+  short_description: "Build and verify the DynamoDB Local test gate"
+  default_prompt: "Use $setup-test-environment to build or verify the approved DynamoDB Local test environment."
+
+policy:
+  allow_implicit_invocation: false
