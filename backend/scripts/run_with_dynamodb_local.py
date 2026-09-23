@@ -135,9 +135,7 @@ def _write_maven_proxy_settings(cache_root: Path) -> Path | None:
         _fail(f"HTTP proxy port is invalid for Maven: {error}")
 
     non_proxy_hosts = (
-        os.environ.get("NO_PROXY")
-        or os.environ.get("no_proxy")
-        or "localhost,127.0.0.1"
+        os.environ.get("NO_PROXY") or os.environ.get("no_proxy") or "localhost,127.0.0.1"
     )
     non_proxy_hosts = "|".join(
         value.strip() for value in non_proxy_hosts.split(",") if value.strip()
@@ -301,27 +299,21 @@ def _prepare_distribution(
     marker = version_root / "maven-resolved.json"
     pom_sha256 = _sha256(runtime.pom_path)
     expected_marker = {
-        "coordinate": (
-            f"{DYNAMODB_LOCAL_GROUP_ID}:{DYNAMODB_LOCAL_ARTIFACT_ID}:{runtime.version}"
-        ),
+        "coordinate": (f"{DYNAMODB_LOCAL_GROUP_ID}:{DYNAMODB_LOCAL_ARTIFACT_ID}:{runtime.version}"),
         "pom_sha256": pom_sha256,
     }
 
     marker_matches = False
     try:
         marker_matches = json.loads(marker.read_text(encoding="utf-8")) == expected_marker
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         pass
 
     if not marker_matches or not _dependencies_complete(runtime, dependencies):
         version_root.mkdir(parents=True, exist_ok=True)
-        temporary = Path(
-            tempfile.mkdtemp(prefix=".dependencies-", dir=version_root)
-        )
+        temporary = Path(tempfile.mkdtemp(prefix=".dependencies-", dir=version_root))
         try:
-            _resolve_maven_dependencies(
-                runtime, repository_root, cache_root, temporary
-            )
+            _resolve_maven_dependencies(runtime, repository_root, cache_root, temporary)
             if not _dependencies_complete(runtime, temporary):
                 _fail("Maven resolved an incomplete DynamoDB Local runtime")
             if dependencies.exists():
@@ -340,10 +332,7 @@ def _prepare_distribution(
 
     actual_version = _read_dynamodb_version(java, dependencies)
     if actual_version != runtime.version:
-        _fail(
-            f"DynamoDB Local version mismatch: expected {runtime.version}, "
-            f"got {actual_version}"
-        )
+        _fail(f"DynamoDB Local version mismatch: expected {runtime.version}, got {actual_version}")
     return dependencies
 
 
@@ -407,7 +396,7 @@ def _stop_process(process: subprocess.Popen[bytes]) -> None:
     try:
         os.killpg(process.pid, signal.SIGTERM)
         process.wait(timeout=10)
-    except (ProcessLookupError, subprocess.TimeoutExpired):
+    except ProcessLookupError, subprocess.TimeoutExpired:
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGKILL)
             process.wait(timeout=5)
@@ -439,9 +428,7 @@ def _run(arguments: argparse.Namespace) -> int:
         java_version = _run_java_version(java)
         maven_version = _run_maven_version(repository_root, cache_root)
         runtime = _load_runtime(pom_path)
-        dependencies = _prepare_distribution(
-            runtime, repository_root, cache_root, java
-        )
+        dependencies = _prepare_distribution(runtime, repository_root, cache_root, java)
         try:
             port = (
                 arguments.port
