@@ -94,51 +94,51 @@ def test_invalid_environment_fails_before_sdk_access(
     clear_dynamodb_caches()
 
 
-def test_checksum_mismatch_stops_before_extraction_or_jar_execution(
-    tmp_path: Path,
+def test_maven_failure_returns_environment_failure(
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    version_root = tmp_path / "3.3.1"
-    version_root.mkdir()
-    (version_root / "dynamodb_local.tar.gz").write_bytes(b"corrupt")
-    extraction_attempted = False
-    jar_execution_attempted = False
+    arguments = runner.argparse.Namespace(port=18001, command=["true"])
+    monkeypatch.setattr(runner, "_parse_arguments", lambda: arguments)
+    monkeypatch.setattr(runner.shutil, "which", lambda executable: "/usr/bin/java")
+    monkeypatch.setattr(runner, "_run_java_version", lambda java: "openjdk version 17")
 
-    def unexpected_extraction(*args: object, **kwargs: object) -> None:
-        nonlocal extraction_attempted
-        extraction_attempted = True
+    def fail_maven(*args: object, **kwargs: object) -> str:
+        raise runner.EnvironmentSetupError("Maven Central unavailable")
 
-    def unexpected_jar_execution(*args: object, **kwargs: object) -> str:
-        nonlocal jar_execution_attempted
-        jar_execution_attempted = True
-        return "3.3.1"
+    monkeypatch.setattr(runner, "_run_maven_version", fail_maven)
 
-    monkeypatch.setattr(runner, "_extract_archive", unexpected_extraction)
-    monkeypatch.setattr(runner, "_read_dynamodb_version", unexpected_jar_execution)
-    lock = runner.DynamoDBLocalLock("3.3.1", "https://example.invalid", "0" * 64)
+    assert runner.main() == runner.ENVIRONMENT_FAILURE_EXIT
+    assert "ENVIRONMENT_FAILURE: Maven Central unavailable" in capsys.readouterr().err
 
-    with pytest.raises(runner.EnvironmentSetupError, match="checksum mismatch"):
-        runner._prepare_distribution(lock, tmp_path, "java")
 
-    assert extraction_attempted is False
-    assert jar_execution_attempted is False
+def test_runtime_pom_pins_dynamodb_local_and_dependency_plugin() -> None:
+    repository_root = Path(runner.__file__).resolve().parents[2]
+    runtime = runner._load_runtime(repository_root / "tools" / "java-runtime" / "pom.xml")
 
+    assert runtime.version == "3.3.1"
+    assert runtime.dependency_plugin_version == "3.8.1"
 
 def test_java_process_start_oserror_returns_environment_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    lock = runner.DynamoDBLocalLock("3.3.1", "https://example.invalid", "0" * 64)
+    runtime = runner.DynamoDBLocalRuntime("3.3.1", "3.8.1", tmp_path / "pom.xml")
     arguments = runner.argparse.Namespace(port=18001, command=["true"])
     monkeypatch.setattr(runner, "_parse_arguments", lambda: arguments)
     monkeypatch.setattr(runner.shutil, "which", lambda executable: "/usr/bin/java")
     monkeypatch.setattr(runner, "_run_java_version", lambda java: "openjdk version 17")
-    monkeypatch.setattr(runner, "_load_lock", lambda path: lock)
+    monkeypatch.setattr(
+        runner,
+        "_run_maven_version",
+        lambda repository_root, cache_root: "Apache Maven 3.9.16",
+    )
+    monkeypatch.setattr(runner, "_load_runtime", lambda path: runtime)
     monkeypatch.setattr(
         runner,
         "_prepare_distribution",
-        lambda lock, cache_root, java: (tmp_path / "DynamoDBLocal.jar", tmp_path / "lib"),
+        lambda runtime, repository_root, cache_root, java: tmp_path / "dependencies",
     )
     monkeypatch.setattr(runner, "_assert_port_available", lambda port: None)
 
