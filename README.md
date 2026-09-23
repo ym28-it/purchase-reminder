@@ -85,9 +85,17 @@ AWS
 
 ## 環境構築
 
-デプロイはコンテナイメージで行う
+デプロイはコンテナイメージで行う。そのため、バックエンドの開発環境はDockerコンテナで管理する。
 
-そのため、バックエンドの開発環境はDockerコンテナで管理する
+Environment Gateは、POSIXシェルを持つLinux（WSL2を含む）またはmacOSで実行する。WindowsネイティブのPowerShell / `cmd.exe`は対象外とし、WindowsではWSL2内に[mise](https://mise.jdx.dev/getting-started.html)を導入する。ホスト側で必要な手動前提はmiseだけであり、Python 3.14.7、uv 0.12.18、Temurin Java 17はルートの`mise.toml`から導入する。
+
+```bash
+# miseを導入済みのLinux / WSL2 / macOSで実行する
+bash scripts/setup_host_prerequisites.sh --install
+bash scripts/setup_host_prerequisites.sh --check
+```
+
+以降のEnvironment Gateコマンドは`mise exec --`経由で実行し、選択済みの`PATH`と`JAVA_HOME`を引き継ぐ。OS別package manager、system Python、グローバルJava/Mavenには依存しない。Mavenは固定Maven Wrapperを使うためmiseにもグローバルにも導入しない。
 
 ### 開発環境
 

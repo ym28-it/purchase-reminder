@@ -6,6 +6,20 @@ on:
   pull_request:
 
 jobs:
+  host-prerequisites:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v4
+        with:
+          install: false
+      - run: bash scripts/setup_host_prerequisites.sh --install
+      - run: bash scripts/setup_host_prerequisites.sh --check
+
   backend:
     runs-on: ubuntu-latest
     steps:
