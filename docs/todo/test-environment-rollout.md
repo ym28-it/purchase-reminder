@@ -15,7 +15,7 @@
 | 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行） |
 | 対象 | ChatGPT Work、Claude Code、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | Maven移行実装済み / Work・Claude CodeでEnvironment Gate再検証・人間再承認待ち |
+| 状態 | Maven移行実装・Work再検証済み / Claude Code再検証・人間再承認待ち |
 
 ## 2. 基本方針
 
@@ -62,7 +62,7 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 - Frontend lint / format: Pass
 - Frontend tests: 既存テスト0件
 - Frontend build: `src/routeTree.gen`不足による既存失敗
-- Backend integration: 環境スモーク・fail-closedテスト14件
+- Backend integration: 環境スモーク・fail-closed・Maven設定テスト15件
 - E2E: READMEのみ
 - WorkとClaude CodeからMaven Centralへ到達可能。環境ごとの完全なGate再検証はPR #19で実施する
 
@@ -318,9 +318,9 @@ Environment Gate:
 - [x] Work proxyとproxyなし環境を同じランナーで扱う
 - [x] 単一コマンドで依存解決、起動、ready check、子コマンド、停止を行う
 - [x] 実AWSへ接続しないfail-closed検査がある
-- [ ] Workで環境スモークと既存unit testが連続2回成功
+- [x] Workで環境スモークと既存unit testが連続2回成功
 - [ ] Claude Codeで環境スモークと既存unit testが連続2回成功
-- [ ] Maven・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として実環境で確認
+- [x] WorkでMaven・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として確認
 - [ ] Maven方式の検証済みSHAを記録
 - [ ] 人間が更新後のEnvironment Gateを承認
 
