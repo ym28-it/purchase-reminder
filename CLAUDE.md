@@ -16,11 +16,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。DynamoDBの汎用モデル基盤には単体テストがあるが、purchase CRUD、services、API、frontendのテストは未整備。Cognito認証、購入タイミングのドメインロジック、通知、Terraform、デプロイ、E2Eは未実装。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
 
-### 現在の優先作業: テスト環境構築
+### 現在の優先作業: 4エージェント開発サイクルの実行Skills整備
 
-購入物登録の機能TDDを開始する前に、[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)のStep 1〜3を実装し、Work Environment Gateを通過させる。計画書をこの作業のsource of truthとし、Environment Gateが人間に承認されるまで購入物登録の機能テストとプロダクトコードを変更しない。
+[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)のStep 1〜3とWork Environment Gateは実装・検証・人間承認済みである。環境コードまたはテスト基盤を変更しない限り、機能TDDのたびに環境を再構築せず、既存の実行ラッパーとfixtureを利用する。
 
-この作業は、Claude Codeでは`/setup-test-environment`、対応するWork環境では`$setup-test-environment` Skillを明示的に呼び出して開始する。Skillは環境構築と検証だけを担当し、Environment Gate通過後も人間の承認なしに機能TDDへ進まない。
+開発は[4エージェント＋オーケストレーター開発運用](docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)に従う。次の整備対象は、仕様、TDDテスト、実装、実装後テスト、最終レビューを役割境界どおり実行するSkillsである。Skills整備自体は購入物登録の機能TDD開始を意味しない。人間が明示的に「TDD開始」を指示するまで、購入物登録の機能テストとプロダクトコードを変更しない。
+
+テスト環境の確認・修復が必要な場合だけ、Claude Codeでは`/setup-test-environment`、対応するWork環境では`$setup-test-environment` Skillを明示的に呼び出す。このSkillは環境構築と検証だけを担当し、機能TDDへ進まない。
 
 ## 開発分担（仕様駆動）
 
@@ -41,15 +43,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **人間**
   - 機能の目的・要求・制約を提示する
-  - AIとともに仕様を決め、Markdownの内容を最終承認する
-  - 論理テストケースを確認し、期待する振る舞いを承認する
-  - テスト内容と実行結果を通じて、実装が仕様に適合しているか最終判断する
-- **AI**
-  - 仕様書のたたき台を作成し、曖昧さ・矛盾・不足を確認事項として提示する
-  - 承認済み仕様と対応する論理テストケースを作成する
-  - テストコード、アプリケーションコード、認証、インフラ、CI/CDを含む全コードを実装する
-  - lint・型チェック・単体テスト・統合テスト・E2E・ビルドを実行し、結果を報告する
-  - 失敗を実装のバグと仕様理解の相違に分類し、仕様を無断で実装へ合わせない
+  - 仕様、論理テストケース、中心的契約、TDD計画、各Gateを最終承認する
+  - 最終レビュー結果と証跡を確認し、Slice Completeを判断する
+- **仕様エージェント**
+  - 仕様書、論理テストケース、中心的契約候補、最小TDD計画を作成する
+  - 曖昧さ・矛盾・不足を確認事項として提示し、判断を勝手に補完しない
+  - テストコードとプロダクトコードを変更しない
+- **テストエージェント**
+  - 承認済み成果物からTDDテストを作成し、Valid Redを記録する
+  - 実装後は新しいコンテキストでコードを調査し、追加テストと実装後テストレポートを作成する
+  - プロダクトコードを変更せず、期待値を実装へ合わせない
+- **実装エージェント**
+  - 凍結済みTDDテストを変更せず、Greenにする最小のプロダクト実装を行う
+  - 仕様またはテストの変更が必要なら停止して差し戻す
+- **レビューエージェント**
+  - 新しいコンテキストで仕様、差分、テスト、証跡を統合的に確認する
+  - 問題を仕様・テスト・実装・環境へ分類して差し戻し、自ら修正または自己承認しない
+- **オーケストレーター**
+  - 成果物、対象SHA、状態、Gate、工程順序、差し戻しを管理する
+  - 仕様・品質判断、成果物の修正、人間承認を代行しない
 
 ## テスト・開発フロー
 
@@ -57,7 +69,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 垂直スライスは全レイヤーのコード変更を要求しない。既存APIなどを利用してユーザー価値が完成する場合は、フロントエンドだけのコード変更でもよい。部分的な不具合修正、外部挙動を変えないリファクタリング、UI改善、テスト・依存関係・CI・インフラ・文書の保守では、影響範囲内で独立して検証可能な最小変更を単位とし、関係のないレイヤーの変更やテストを要求しない。
 
-実装前の最小TDDには `docs/TDD-WORKFLOW.md` を適用する。TDD Greenは機能全体のテスト完了ではなく、その後に実装後テスト分析へ進む。
+実装前の最小TDDには `docs/TDD-WORKFLOW.md` を適用する。役割分離、独立コンテキスト、Gate、差し戻しは `docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md` を適用する。TDD Greenは機能全体のテスト完了ではなく、その後に新しいテストエージェントによる実装後テストと、新しいレビューエージェントによる最終統合レビューへ進む。
 
 テストの選定と品質判定には `docs/MINIMUM-TDD-TEST-PRINCIPLES.md` を必ず適用し、論理テストケースと実行証跡は `docs/templates/minimum-tdd-test-plan.md` を基に記録する。
 
