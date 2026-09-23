@@ -79,7 +79,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 仕様ファイルの置き場所: `docs/specs/<feature-slug>.md`（新規機能）
 - 論理テストケースファイルの置き場所: `docs/specs/<feature-slug>-test-cases.md`
-- 実装前TDD計画: `docs/specs/<feature-slug>-test-plan.md`
+- 実装前TDD計画: `docs/specs/<feature-slug>-tdd-plan.md`
 - 実装後テストレポート: `docs/specs/<feature-slug>-post-test-report.md`
 - 現在のpurchase CRUDは仕様書と機能テストがない既存実装なので、最初の整備ではTDD-WORKFLOW.mdのケースBを適用する
 - 実装コードとテストコードはレイヤーを問わずAIが担当する。人間は仕様・論理テストケース・テスト結果を確認し、実装が仕様に適合しているかを最終判断する
