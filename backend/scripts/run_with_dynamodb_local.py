@@ -100,12 +100,13 @@ def _run_java_version(java: str) -> str:
     except (OSError, subprocess.SubprocessError) as error:
         _fail(f"unable to execute Java: {error}")
     output = (result.stdout + result.stderr).strip()
-    match = re.search(r'version "(\d+)', output)
+    # JAVA_TOOL_OPTIONS makes the JVM print a "Picked up ..." notice before the version line.
+    match = re.search(r'^.*version "(\d+).*$', output, re.MULTILINE)
     if result.returncode != 0 or match is None:
         _fail(f"unable to determine Java version: {output}")
     if int(match.group(1)) < MINIMUM_JAVA_MAJOR:
         _fail(f"Java {MINIMUM_JAVA_MAJOR} or newer is required: {output}")
-    return output.splitlines()[0]
+    return match.group(0)
 
 
 def _maven_environment(cache_root: Path) -> dict[str, str]:
