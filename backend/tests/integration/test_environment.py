@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pytest
-
 from app.core import dynamodb as dynamodb_module
 from app.core.config import get_settings
 from app.core.dynamodb import get_dynamodb_resource, get_table
@@ -118,6 +117,7 @@ def test_runtime_pom_pins_dynamodb_local_and_dependency_plugin() -> None:
 
     assert runtime.version == "3.3.1"
     assert runtime.dependency_plugin_version == "3.8.1"
+
 
 def test_java_process_start_oserror_returns_environment_failure(
     tmp_path: Path,
