@@ -4,21 +4,23 @@
 
 `ENVIRONMENT_READY`
 
-購入物登録の機能テストおよびプロダクトコードには着手していない。機能TDDの開始には、
-この環境整備PRのマージ後に人間による明示的な承認が必要である。
+PR #16をマージした最新`main`だけを根拠として、クリーンなWork環境からテスト環境を再現し、
+Environment Gateを2回連続で通過した。購入物登録の機能テスト、プロダクトコード、E2E、
+GitHub Actions、AWS stagingには着手していない。機能TDDの開始には人間による明示的な承認が必要である。
 
 | 項目 | 値 |
 |---|---|
 | 実行日 | 2026-09-23 |
-| 基準 `main` | `b911bf2233051f8ddc48ef79c7e4a70a883dd00a` |
-| 環境実装コミット | `49b0db8104950f7e1017ed4a5691ceef5a6e5b52` |
-| レビュー対応コミット | `85f25f874ab4b0d560931c1ff75327f67680fb3a` |
-| ブランチ | `test/dynamodb-local-environment` |
+| 基準 `main` | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
+| PR #16マージコミット | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
+| ブランチ | `main` |
+| OS | Ubuntu 24.04.3 LTS |
+| アーキテクチャ | `x86_64` |
 | Java | OpenJDK 17.0.20 |
 | DynamoDB Local | 3.3.1 |
 | 配布物SHA-256 | `f80bcec477f85f57e2c77f8d54aa6b672a8403fceff0c450560aee1cf6c21163` |
 
-## Environment Gate（連続2回）
+## 実行コマンド
 
 `backend/`で次のコマンドを2回連続で実行した。
 
@@ -30,6 +32,16 @@ uv run python -m scripts.run_with_dynamodb_local \
   -- uv run pytest -m integration
 ```
 
+各回の後に、ランナーなしのfail-closedと子コマンド終了コード保持を確認した。
+
+```bash
+uv run pytest -m integration
+uv run python -m scripts.run_with_dynamodb_local \
+  -- python -c 'raise SystemExit(23)'
+```
+
+## Environment Gate（連続2回）
+
 | 検証 | 1回目 | 2回目 |
 |---|---:|---:|
 | Ruff lint | Pass | Pass |
@@ -39,41 +51,55 @@ uv run python -m scripts.run_with_dynamodb_local \
 | API ready check | Pass | Pass |
 | 子コマンド終了コード | 0 | 0 |
 | DynamoDB Local停止 | Pass | Pass |
-| セッションID | `f9bbd6e1163940cabfc939700a4fa2e6` | `329d65c1659e4b05bcb266fa9725d39c` |
+| 8001番ポート解放 | Pass | Pass |
+| 永続DBファイル | なし | なし |
+| セッションID | `5eb403ca45784f41a3b0e26cfba75ea9` | `f3b52c7af8974d349add0ff1b2a7deaf` |
 
-異なるセッションIDとテーブル名が生成され、各テスト前のテーブル削除・再作成、空状態、
-汎用的な1件のput/get、`DescribeTable`、設定キャッシュのクリアを確認した。両実行後に
-DynamoDB Localプロセスと8001番ポートは残っていない。
+異なるセッションIDとテーブル名が生成された。DynamoDB Localは`-inMemory`で起動し、
+各テスト前にテスト専用テーブルを削除・再作成している。1回目のプロセス停止後に
+8001番ポートと永続DBファイルが残らないことを確認してから2回目を開始したため、
+1回目のテーブルおよびセッションデータは2回目へ継承されていない。
 
 ## 負系Gate
 
-| 検証 | 実行方法 | 結果 |
+| 検証 | 1回目 | 2回目 |
 |---|---|---|
-| ランナーなし | `uv run pytest -m integration` | SDK呼び出し前に`ENVIRONMENT_FAILURE`、exit 70 |
-| endpoint未設定 | 環境スモーク内 | SDK呼び出しなしでFail |
-| 非loopback endpoint | 環境スモーク内 | SDK呼び出しなしでFail |
-| endpointとportの不一致 | 環境スモーク内 | SDK呼び出しなしでFail |
-| 非dummy credential | 環境スモーク内 | SDK呼び出しなしでFail |
-| AWS profile / session token | 環境スモーク内 | SDK呼び出しなしでFail |
-| checksum不一致 | 環境スモーク内 | 展開・JAR実行前にFail |
-| Javaプロセス起動の`OSError` | 環境スモーク内 | `ENVIRONMENT_FAILURE`、exit 70 |
-| その他のOSレベル失敗 | ランナーの共通例外境界 | ログ作成・checksum読み取り等を`ENVIRONMENT_FAILURE`、exit 70として処理 |
-| 8001番ポート使用中 | 一時HTTP serverを所有者として起動後にランナーを実行 | `ENVIRONMENT_FAILURE`、exit 70、既存プロセスを維持 |
-| 子コマンド失敗 | `python -c 'raise SystemExit(23)'` | exit 23を保持し、起動したPIDだけを停止、port解放 |
+| ランナーなし | `ENVIRONMENT_FAILURE`、exit 70 | `ENVIRONMENT_FAILURE`、exit 70 |
+| endpoint未設定 | SDK呼び出し前にFail | SDK呼び出し前にFail |
+| 非loopback endpoint | SDK呼び出し前にFail | SDK呼び出し前にFail |
+| endpointとportの不一致 | SDK呼び出し前にFail | SDK呼び出し前にFail |
+| 非dummy credential | SDK呼び出し前にFail | SDK呼び出し前にFail |
+| AWS profile / session token | SDK呼び出し前にFail | SDK呼び出し前にFail |
+| checksum不一致 | JAR実行前にFail | JAR実行前にFail |
+| Javaプロセス起動の`OSError` | `ENVIRONMENT_FAILURE`、exit 70 | `ENVIRONMENT_FAILURE`、exit 70 |
+| 子コマンド失敗 | exit 23を保持 | exit 23を保持 |
+| 子コマンド失敗時のセッションID | `f72b721954864d8b9b4feb93b51fed9b` | `f9c24a9d1536489c9930f0e06f629d29` |
+| 子コマンド失敗後のPID cleanup | Pass | Pass |
+| 子コマンド失敗後の8001番ポート解放 | Pass | Pass |
 
-ランナーなしと子コマンド失敗の負系Gateも2回連続で実行し、各回でexit 70 / exit 23、
-PID cleanup、8001番port解放を確認した。
+ログ作成・checksum読み取りを含むOSレベルの失敗は、ランナーの共通例外境界と自動テストで
+`ENVIRONMENT_FAILURE`、exit 70へ変換される。ランナーなしと子コマンド失敗の負系Gateは
+両方とも2回実行した。
 
-## 実装範囲と差分
+## PR #16証跡との差異
 
-- 固定バージョン・取得元・SHA-256のロックファイル
-- Java確認、download、checksum、展開、version確認、API ready check、子プロセス実行、cleanupを行う共通ランナー
-- Java起動、ログ作成、checksum読み取り等のOS例外をexit 70へ変換する共通境界
-- loopback endpoint、テスト用table prefix、dummy credential、port、実AWS向け環境変数のfail-closed検査
-- pytestの`integration` marker、セッション単位の接続、テスト単位の空テーブル再作成、冪等cleanup
-- DynamoDB Localに依存しない既存unitを分離するActionsコマンド
-- 環境スモークと安全性テストのみ。購入物機能テスト、プロダクトコード、E2E、AWS stagingは変更なし
+| 項目 | PR #16上の証跡 | 最新`main`再検証 |
+|---|---|---|
+| 基準 | `b911bf2233051f8ddc48ef79c7e4a70a883dd00a` + PRブランチ | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
+| ブランチ | `test/dynamodb-local-environment` | `main` |
+| Unit | 53 passed × 2 | 53 passed × 2 |
+| Environment | 14 passed × 2 | 14 passed × 2 |
+| Java | OpenJDK 17.0.20 | OpenJDK 17.0.20 |
+| DynamoDB Local / SHA-256 | 3.3.1 / 一致 | 3.3.1 / 一致 |
+| Cleanup | Pass × 2 | Pass × 2 |
 
-`docs/todo/test-environment-rollout.md`はStep 1〜3を実装・技術検証済みとして更新した。
-Environment Gateの人間承認、PR #16のマージ、最新`main`での再検証は未完了である。
-承認済み計画からの逸脱はない。
+テスト件数、固定バージョン、checksum、安全性、cleanup結果に差異はない。差異は、
+PRブランチ上の証跡からPR #16マージ後の最新`main`上の証跡へ基準が更新されたことと、
+実行ごとに一意であるセッションIDだけである。
+
+## TDD開始基準
+
+`2983f363565f09cf364dfd0d6ae20c7846c3cc01`は、技術的には購入物登録TDDの開始基準として
+採用可能である。ただし、`docs/todo/test-environment-rollout.md`に残るGAP-002の解消確認、
+Environment Gateの人間承認、および人間による明示的な「TDD開始」指示が完了するまで、
+機能TDDを開始しない。
