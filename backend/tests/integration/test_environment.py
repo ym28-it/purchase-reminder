@@ -124,6 +124,33 @@ def test_checksum_mismatch_stops_before_extraction_or_jar_execution(
     assert jar_execution_attempted is False
 
 
+def test_java_process_start_oserror_returns_environment_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    lock = runner.DynamoDBLocalLock("3.3.1", "https://example.invalid", "0" * 64)
+    arguments = runner.argparse.Namespace(port=18001, command=["true"])
+    monkeypatch.setattr(runner, "_parse_arguments", lambda: arguments)
+    monkeypatch.setattr(runner.shutil, "which", lambda executable: "/usr/bin/java")
+    monkeypatch.setattr(runner, "_run_java_version", lambda java: "openjdk version 17")
+    monkeypatch.setattr(runner, "_load_lock", lambda path: lock)
+    monkeypatch.setattr(
+        runner,
+        "_prepare_distribution",
+        lambda lock, cache_root, java: (tmp_path / "DynamoDBLocal.jar", tmp_path / "lib"),
+    )
+    monkeypatch.setattr(runner, "_assert_port_available", lambda port: None)
+
+    def fail_to_start(*args: object, **kwargs: object) -> None:
+        raise OSError("java process start denied")
+
+    monkeypatch.setattr(runner.subprocess, "Popen", fail_to_start)
+
+    assert runner.main() == runner.ENVIRONMENT_FAILURE_EXIT
+    assert "ENVIRONMENT_FAILURE: java process start denied" in capsys.readouterr().err
+
+
 def test_cache_clear_removes_all_cached_aws_objects(
     dynamodb_test_session: DynamoDBTestEnvironment,
 ) -> None:

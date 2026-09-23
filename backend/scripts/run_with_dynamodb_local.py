@@ -246,15 +246,13 @@ def _parse_arguments() -> argparse.Namespace:
     return arguments
 
 
-def main() -> int:
-    arguments = _parse_arguments()
+def _run(arguments: argparse.Namespace) -> int:
     repository_root = Path(__file__).resolve().parents[2]
     lock_path = repository_root / "backend" / "dynamodb-local.lock.json"
     cache_root = repository_root / ".cache" / "dynamodb-local"
     java = shutil.which("java")
     if java is None:
-        print("ENVIRONMENT_FAILURE: Java is not installed", file=sys.stderr)
-        return ENVIRONMENT_FAILURE_EXIT
+        _fail("Java is not installed")
 
     process: subprocess.Popen[bytes] | None = None
     log_file = None
@@ -307,17 +305,22 @@ def main() -> int:
         child = subprocess.run(arguments.command, env=environment, check=False)
         print(f"Child command exit: {child.returncode}", flush=True)
         return child.returncode
-    except EnvironmentSetupError as error:
-        print(f"ENVIRONMENT_FAILURE: {error}", file=sys.stderr)
-        if process is not None and log_file is not None:
-            log_file.flush()
-        return ENVIRONMENT_FAILURE_EXIT
     finally:
-        if process is not None:
-            _stop_process(process)
-            print(f"DynamoDB Local stopped: PID {process.pid}", flush=True)
-        if log_file is not None:
-            log_file.close()
+        try:
+            if process is not None:
+                _stop_process(process)
+                print(f"DynamoDB Local stopped: PID {process.pid}", flush=True)
+        finally:
+            if log_file is not None:
+                log_file.close()
+
+
+def main() -> int:
+    try:
+        return _run(_parse_arguments())
+    except (EnvironmentSetupError, OSError) as error:
+        print(f"ENVIRONMENT_FAILURE: {error}", file=sys.stderr)
+        return ENVIRONMENT_FAILURE_EXIT
 
 
 if __name__ == "__main__":
