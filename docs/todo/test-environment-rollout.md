@@ -15,7 +15,7 @@
 | 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行） |
 | 対象 | ChatGPT Work、Claude Code、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | Maven移行実装・Work再検証済み / Claude Code再検証・人間再承認待ち |
+| 状態 | uv 0.12.18・Python 3.14.7固定対応 / Work・Claude Code再検証・人間再承認待ち |
 
 ## 2. 基本方針
 
@@ -46,14 +46,14 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 
 | 領域 | 現状 |
 |---|---|
-| Backend | FastAPI、boto3、Python 3.14、uv |
+| Backend | FastAPI、boto3、Python 3.14.7、uv 0.12.18 |
 | Frontend | React、TypeScript、Vite、bun |
 | 永続化 | PK/SKとGSIを使うDynamoDBシングルテーブル |
 | 接続切替 | `DYNAMODB_ENDPOINT_URL`の有無 |
 | テーブル作成 | `backend/scripts/bootstrap_local_table.py` |
 | ローカル開発 | Docker Compose上のDynamoDB Local |
-| Work | Dockerなし、OpenJDK 17あり。HTTP proxyをMaven一時設定へ変換 |
-| Claude Code | Docker利用可否に依存せず、Java 17以上とMaven Central接続を前提 |
+| Work | Dockerなし、OpenJDK 17あり。固定uvをPyPIからbootstrapし、HTTP proxyをMaven一時設定へ変換 |
+| Claude Code | Docker利用可否に依存せず、system Python 3とPyPI、Java 17以上、Maven Centralへの接続を前提 |
 
 ### 3.2 Baseline
 
@@ -72,9 +72,18 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 
 したがって、DynamoDB Local実行基盤はTDDテスト作成後ではなく、その前にEnvironment Gateを通過させる。
 
-## 4. Work環境仕様
+## 4. Work / Claude Code環境仕様
 
-### 4.1 MavenとDynamoDB Local
+### 4.1 Pythonとuv
+
+- Pythonは`3.14.7`、uvは`0.12.18`へ固定する。
+- 固定値はルートと`backend/`の`.python-version`、`mise.toml`、CI、コンテナで一致させる。
+- AIリモート環境では、古いuvの`self update`やGitHub上のstandalone installerを使用しない。
+- `scripts/bootstrap_uv.sh`がsystem `python3`とPyPIを使い、固定uvをリポジトリ内の`.cache/uv-bootstrap/`へ導入する。
+- bootstrap後は`.cache/bin`を`PATH`の先頭へ追加し、`backend/`で`uv sync --python 3.14.7 --frozen`を実行する。これにより既存のPython 3.14 prerelease環境を再利用しない。
+- uv bootstrap、Python 3.14.7の発見・取得、バージョン検証の失敗は`ENVIRONMENT_FAILURE`として扱い、機能TDDへ進まない。
+
+### 4.2 MavenとDynamoDB Local
 
 - Java 17以上を実行ランタイムとする。Java自体のインストールやバージョン管理はMavenの責務にしない。
 - Maven Wrapper `3.3.4`とApache Maven `3.9.16`をリポジトリ直下へ固定する。
@@ -89,6 +98,10 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 管理ファイル:
 
 ```text
+scripts/bootstrap_uv.sh
+.python-version
+backend/.python-version
+mise.toml
 mvnw
 mvnw.cmd
 .mvn/wrapper/maven-wrapper.properties
@@ -109,7 +122,7 @@ tools/java-runtime/pom.xml
 
 POMまたは固定バージョンを変更した場合、POMのSHA-256とmarkerが一致しなくなるため、ランナーは依存関係を再解決する。バージョン更新は専用PRで行い、WorkとClaude CodeのEnvironment Gateを再実行する。
 
-### 4.2 起動モード
+### 4.3 起動モード
 
 自動テストでは、Mavenが解決したclasspathとnative library directoryを使って起動する。
 
@@ -128,14 +141,14 @@ java \
 
 手動デバッグで状態保持が必要な場合だけ、`-inMemory`を外して専用の`-dbPath`を指定する。
 
-### 4.3 ポート
+### 4.4 ポート
 
 - 既定値は現在のDocker Composeと合わせて`8001`とする。
 - `DYNAMODB_LOCAL_PORT`で上書き可能にする。
 - 起動前に使用中か検査し、既存プロセスを無条件に終了しない。
 - ラッパーが起動したPIDだけを記録し、終了時にそのPIDだけを停止する。
 
-### 4.4 接続設定
+### 4.5 接続設定
 
 ```text
 DYNAMODB_ENDPOINT_URL=http://127.0.0.1:<port>
@@ -214,6 +227,10 @@ portが開いていることだけをready判定にしない。
 成果物:
 
 ```text
+scripts/bootstrap_uv.sh
+.python-version
+backend/.python-version
+mise.toml
 mvnw
 mvnw.cmd
 .mvn/wrapper/maven-wrapper.properties
@@ -224,25 +241,30 @@ backend/scripts/run_with_dynamodb_local.py
 
 ラッパーは次を1コマンドで行う。
 
-1. [x] Java 17以上を確認
-2. [x] Maven WrapperとMaven配布物SHA-256を固定
-3. [x] POMからDynamoDB Local 3.3.1とdependency pluginの固定バージョンを読む
-4. [x] 環境proxyを認証情報を残さない一時Maven settingsへ変換
-5. [x] Maven Centralから本体、推移依存、native libraryを解決
-6. [x] POM SHA-256と解決済みmarkerを照合してcacheを再利用
-7. [x] 実行時にDynamoDB Localのversion出力を検証
-8. [x] 未使用portを確認
-9. [x] in-memoryモードで起動
-10. [x] APIレベルのready check
-11. [x] 子コマンドをサニタイズしたAWS環境変数で実行
-12. [x] 終了コードを保持
-13. [x] 自分が起動したDynamoDB Localだけを停止
-14. [x] ログと終了理由を出力
+1. [x] uv 0.12.18をPyPI経由でbootstrap
+2. [x] Python 3.14.7を明示的に選択
+3. [x] Java 17以上を確認
+4. [x] Maven WrapperとMaven配布物SHA-256を固定
+5. [x] POMからDynamoDB Local 3.3.1とdependency pluginの固定バージョンを読む
+6. [x] 環境proxyを認証情報を残さない一時Maven settingsへ変換
+7. [x] Maven Centralから本体、推移依存、native libraryを解決
+8. [x] POM SHA-256と解決済みmarkerを照合してcacheを再利用
+9. [x] 実行時にDynamoDB Localのversion出力を検証
+10. [x] 未使用portを確認
+11. [x] in-memoryモードで起動
+12. [x] APIレベルのready check
+13. [x] 子コマンドをサニタイズしたAWS環境変数で実行
+14. [x] 終了コードを保持
+15. [x] 自分が起動したDynamoDB Localだけを停止
+16. [x] ログと終了理由を出力
 
 実行コマンドは変更しない。
 
 ```bash
+bash scripts/bootstrap_uv.sh
+export PATH="$PWD/.cache/bin:$PATH"
 cd backend
+uv sync --python 3.14.7 --frozen
 uv run python -m scripts.run_with_dynamodb_local \
   -- uv run pytest -m integration
 ```
@@ -292,6 +314,8 @@ backend/pyproject.toml
 
 | 検証 | 期待結果 |
 |---|---|
+| uv version | 0.12.18 |
+| Python version | 3.14.7（prerelease不可） |
 | Java version | 17以上 |
 | Maven Wrapper | 3.3.4、固定SHA-256検証 |
 | Maven version | 3.9.16 |
@@ -318,9 +342,9 @@ Environment Gate:
 - [x] Work proxyとproxyなし環境を同じランナーで扱う
 - [x] 単一コマンドで依存解決、起動、ready check、子コマンド、停止を行う
 - [x] 実AWSへ接続しないfail-closed検査がある
-- [x] Workで環境スモークと既存unit testが連続2回成功
+- [ ] 固定uv・PythonでWorkの環境スモークと既存unit testが連続2回成功
 - [ ] Claude Codeで環境スモークと既存unit testが連続2回成功
-- [x] WorkでMaven・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として確認
+- [ ] 固定uv・PythonでWorkのMaven・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として再確認
 - [ ] Maven方式の検証済みSHAを記録
 - [ ] 人間が更新後のEnvironment Gateを承認
 
@@ -485,10 +509,10 @@ test: complete purchase creation post-implementation verification
 - [x] APIレベルready checkが成功
 - [x] pytest integration fixtureが実AWSへ接続しない
 - [x] 設定キャッシュを開始前後にクリア
-- [x] 環境スモークが連続2回成功
-- [x] 既存unit testが成功
+- [ ] 固定uv・Pythonで環境スモークが連続2回成功
+- [ ] 固定uv・Pythonで既存unit testが成功
 - [x] TDD計画のGAP-002を解消済み
-- [ ] Maven方式のEnvironment Gate検証済みSHAを記録
+- [ ] 固定uv・Pythonを含むMaven方式のEnvironment Gate検証済みSHAを記録
 - [ ] 人間がMaven方式のEnvironment Gateを再承認
 - [ ] 人間が「TDD開始」を指示
 
