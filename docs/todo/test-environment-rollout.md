@@ -15,7 +15,7 @@
 | 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行） |
 | 対象 | ChatGPT Work、Claude Code、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | uv 0.12.18・Python 3.14.7固定対応 / Work・Claude Code再検証・人間再承認待ち |
+| 状態 | POSIXホスト前提・uv 0.12.18・Python 3.14.7固定対応 / Work・Claude Code再検証・人間再承認待ち |
 
 ## 2. 基本方針
 
@@ -52,8 +52,10 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 | 接続切替 | `DYNAMODB_ENDPOINT_URL`の有無 |
 | テーブル作成 | `backend/scripts/bootstrap_local_table.py` |
 | ローカル開発 | Docker Compose上のDynamoDB Local |
-| Work | Dockerなし、OpenJDK 17あり。固定uvをPyPIからbootstrapし、HTTP proxyをMaven一時設定へ変換 |
-| Claude Code | Docker利用可否に依存せず、system Python 3とPyPI、Java 17以上、Maven Centralへの接続を前提 |
+| Work | Dockerなし。ホスト前提を検査・構築後、固定uvをPyPIからbootstrapし、HTTP proxyをMaven一時設定へ変換 |
+| Claude Code | Docker利用可否に依存せず、ホスト前提を検査・構築後、PyPIとMaven Centralへ接続 |
+
+正式に対応するホストは、POSIXシェルを持つLinux（WSL2を含む）とmacOSとする。WindowsネイティブのPowerShell / `cmd.exe`はEnvironment Gateの実行環境に含めない。WSL2ではWindows側のPythonやJavaを混在させず、WSLディストリビューション内へ前提ランタイムを導入する。シェルスクリプトと`mvnw`は`.gitattributes`でLFへ固定する。
 
 ### 3.2 Baseline
 
@@ -77,6 +79,7 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 ### 4.1 Pythonとuv
 
 - Pythonは`3.14.7`、uvは`0.12.18`へ固定する。
+- 固定Pythonを取得するためのbootstrap用system Python 3と`venv` moduleはホスト前提とし、`scripts/setup_host_prerequisites.sh`で検査・明示的に導入する。
 - 固定値はルートと`backend/`の`.python-version`、`mise.toml`、CI、コンテナで一致させる。
 - AIリモート環境では、古いuvの`self update`やGitHub上のstandalone installerを使用しない。
 - `scripts/bootstrap_uv.sh`がsystem `python3`とPyPIを使い、固定uvをリポジトリ内の`.cache/uv-bootstrap/`へ導入する。
@@ -86,6 +89,7 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 ### 4.2 MavenとDynamoDB Local
 
 - Java 17以上を実行ランタイムとする。Java自体のインストールやバージョン管理はMavenの責務にしない。
+- Java 17以上はホスト前提構築の対象とし、Linuxではapt-getまたはdnf、macOSではHomebrewを使って明示的に導入する。Mavenはグローバル導入せず、固定Maven Wrapperだけを使う。
 - Maven Wrapper `3.3.4`とApache Maven `3.9.16`をリポジトリ直下へ固定する。
 - Maven配布物はMaven Centralの固定URLから取得し、`.mvn/wrapper/maven-wrapper.properties`のSHA-256で検証する。
 - DynamoDB LocalはMaven Centralの`software.amazon.dynamodb:DynamoDBLocal:3.3.1`として固定する。
@@ -98,7 +102,9 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 管理ファイル:
 
 ```text
+scripts/setup_host_prerequisites.sh
 scripts/bootstrap_uv.sh
+.gitattributes
 .python-version
 backend/.python-version
 mise.toml
@@ -227,7 +233,9 @@ portが開いていることだけをready判定にしない。
 成果物:
 
 ```text
+scripts/setup_host_prerequisites.sh
 scripts/bootstrap_uv.sh
+.gitattributes
 .python-version
 backend/.python-version
 mise.toml
@@ -239,8 +247,9 @@ backend/scripts/run_with_dynamodb_local.py
 .gitignore
 ```
 
-ラッパーは次を1コマンドで行う。
+共通の環境構築・実行経路は次を行う。
 
+0. [x] 対応OS、bootstrap用system Python 3 + venv、Java 17以上を検査し、明示指定時だけ不足分を導入
 1. [x] uv 0.12.18をPyPI経由でbootstrap
 2. [x] Python 3.14.7を明示的に選択
 3. [x] Java 17以上を確認
@@ -258,9 +267,12 @@ backend/scripts/run_with_dynamodb_local.py
 15. [x] 自分が起動したDynamoDB Localだけを停止
 16. [x] ログと終了理由を出力
 
-実行コマンドは変更しない。
+ホスト前提の構築とGate本体を次の順序で実行する。`--install`は不足がある場合だけ明示的に実行し、通常の再検証では`--check`だけを使う。
 
 ```bash
+bash scripts/setup_host_prerequisites.sh --check
+# 不足時だけ、利用者の明示的な操作として次を実行する
+bash scripts/setup_host_prerequisites.sh --install
 bash scripts/bootstrap_uv.sh
 export PATH="$PWD/.cache/bin:$PATH"
 cd backend
@@ -271,7 +283,7 @@ uv run python -m scripts.run_with_dynamodb_local \
 
 Maven Wrapper bootstrap、Maven Central解決、checksum、Java、起動、ready checkの失敗は`ENVIRONMENT_FAILURE`として扱い、Valid Redへ数えない。
 
-完了条件: WorkとClaude Codeのクリーン環境から同じ単一コマンドでDynamoDB Localを起動・停止し、Environment Gateをそれぞれ通過できる。
+完了条件: WorkとClaude Codeのクリーン環境から同じ承認済み手順でDynamoDB Localを起動・停止し、Environment Gateをそれぞれ通過できる。
 
 ### Step 2: pytest統合テスト基盤を実装する（実装・検証済み）
 
@@ -314,6 +326,8 @@ backend/pyproject.toml
 
 | 検証 | 期待結果 |
 |---|---|
+| host OS | Linux（WSL2を含む）またはmacOS。WindowsネイティブはFail |
+| host prerequisites | system Python 3 + venv、Java 17以上 |
 | uv version | 0.12.18 |
 | Python version | 3.14.7（prerelease不可） |
 | Java version | 17以上 |
@@ -338,6 +352,8 @@ backend/pyproject.toml
 Environment Gate:
 
 - [x] Maven Wrapper、Maven、DynamoDB Local、pluginのバージョンが固定されている
+- [x] 対応OSとホスト前提の検査・明示的な構築経路が定義されている
+- [x] shell scriptと`mvnw`がLFへ固定されている
 - [x] Maven配布物SHA-256とMaven repository checksum policyが設定されている
 - [x] Work proxyとproxyなし環境を同じランナーで扱う
 - [x] 単一コマンドで依存解決、起動、ready check、子コマンド、停止を行う

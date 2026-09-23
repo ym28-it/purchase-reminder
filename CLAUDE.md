@@ -88,6 +88,8 @@ PR #16で構築したCloudFront直接取得方式のEnvironment Gateは検証・
 
 ### 環境セットアップ
 
+- `bash scripts/setup_host_prerequisites.sh --check` — Linux（WSL2を含む）またはmacOS上で、system Python 3 + venvとJava 17以上を確認
+- `bash scripts/setup_host_prerequisites.sh --install` — 不足する前提をapt-get / dnf / Homebrewで明示的に導入。Mavenとuvはグローバル導入しない
 - `bash scripts/bootstrap_uv.sh` — GitHubのstandalone installerを使わず、PyPIから固定uvを`.cache/`へ導入し、Python 3.14.7を確認
 - `export PATH="$PWD/.cache/bin:$PATH"` — ブートストラップしたuvを現在のshellで優先
 - `mise install` — `mise.toml` で固定されたPython 3.14.7 / uv 0.12.18 / bun / terraformを導入（ローカル開発用）

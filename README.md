@@ -85,9 +85,19 @@ AWS
 
 ## 環境構築
 
-デプロイはコンテナイメージで行う
+デプロイはコンテナイメージで行う。そのため、バックエンドの開発環境はDockerコンテナで管理する。
 
-そのため、バックエンドの開発環境はDockerコンテナで管理する
+Environment Gateは、POSIXシェルを持つLinux（WSL2を含む）またはmacOSで実行する。WindowsネイティブのPowerShell / `cmd.exe`は対象外とし、WSL2ではPythonとJavaをWSLディストリビューション内へ導入する。
+
+```bash
+bash scripts/setup_host_prerequisites.sh --check
+# 前提が不足している場合だけ実行する
+bash scripts/setup_host_prerequisites.sh --install
+bash scripts/bootstrap_uv.sh
+export PATH="$PWD/.cache/bin:$PATH"
+```
+
+前提構築はsystem Python 3 + venvとJava 17以上だけを対象とする。uvとPython 3.14.7はリポジトリ内へbootstrapし、Mavenは固定Maven Wrapperを使うためグローバルには導入しない。
 
 ### 開発環境
 
