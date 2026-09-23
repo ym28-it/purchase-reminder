@@ -16,6 +16,9 @@ dependencies = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+  "integration: requires the approved DynamoDB Local runner",
+]
 
 [tool.ruff]
 line-length = 100

@@ -10,11 +10,12 @@
 
 | 項目 | 値 |
 |---|---|
-| 更新日 | 2026-09-19 |
-| 調査対象コミット | `69a00dc62c32ec80af59a7ad5875e564d039d57e` |
+| 更新日 | 2026-09-23 |
+| 基準`main` | `b911bf2233051f8ddc48ef79c7e4a70a883dd00a` |
+| 環境整備PR | PR #16（レビュー対応中 / 未マージ） |
 | 対象 | ChatGPT Work、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | Step 0契約承認済み / 実装前 |
+| 状態 | Step 1〜3実装・検証済み / Environment Gate人間承認待ち |
 
 ## 2. 基本方針
 
@@ -59,7 +60,7 @@ SQLiteやPostgreSQLで代替せず、WorkとPRではAWS公式のDynamoDB Local�
 - Frontend lint / format: Pass
 - Frontend tests: 既存テスト0件
 - Frontend build: `src/routeTree.gen`不足による既存失敗
-- Backend integration: ディレクトリのみ
+- Backend integration: 環境スモーク・fail-closedテスト14件
 - E2E: READMEのみ
 - WorkからAWS公式のDynamoDB Local配布URLとchecksum URLへ到達可能
 
@@ -192,9 +193,9 @@ portが開いていることだけをready判定にしない。
 
 完了条件: 環境仕様と基準コミットが固定されている。
 
-### Step 1: Work用ランタイムラッパーを実装する
+### Step 1: Work用ランタイムラッパーを実装する（実装・検証済み）
 
-候補成果物:
+成果物:
 
 ```text
 backend/dynamodb-local.lock.json
@@ -202,21 +203,21 @@ backend/scripts/run_with_dynamodb_local.py
 .gitignore
 ```
 
-ラッパーは次を1コマンドで行う。
+ラッパーは次を1コマンドで行う。すべて実装済みである。
 
-1. Java 17以上を確認
-2. ロックファイルを読む
-3. キャッシュ済み配布物のchecksumを確認
-4. 未取得なら公式配布元からダウンロード
-5. 期待SHA-256を照合
-6. 安全なキャッシュ先へ展開
-7. 未使用portを確認
-8. in-memoryモードで起動
-9. APIレベルのready check
-10. 子コマンドをサニタイズした環境変数で実行
-11. 終了コードを保持
-12. 自分が起動したDynamoDB Localだけを停止
-13. ログと終了理由を出力
+1. [x] Java 17以上を確認
+2. [x] ロックファイルを読む
+3. [x] キャッシュ済み配布物のchecksumを確認
+4. [x] 未取得なら公式配布元からダウンロード
+5. [x] 期待SHA-256を照合
+6. [x] 安全なキャッシュ先へ展開
+7. [x] 未使用portを確認
+8. [x] in-memoryモードで起動
+9. [x] APIレベルのready check
+10. [x] 子コマンドをサニタイズした環境変数で実行
+11. [x] 終了コードを保持
+12. [x] 自分が起動したDynamoDB Localだけを停止
+13. [x] ログと終了理由を出力
 
 想定コマンド:
 
@@ -228,11 +229,11 @@ uv run python -m scripts.run_with_dynamodb_local \
 
 ダウンロード、checksum、Java、起動、ready checkの失敗は`ENVIRONMENT_FAILURE`として扱い、Valid Redへ数えない。
 
-完了条件: 空のWork環境から単一コマンドでDynamoDB Localを起動・停止できる。
+完了条件: **達成済み。** 空のWork環境から単一コマンドでDynamoDB Localを起動・停止できる。
 
-### Step 2: pytest統合テスト基盤を実装する
+### Step 2: pytest統合テスト基盤を実装する（実装・検証済み）
 
-候補成果物:
+成果物:
 
 ```text
 backend/tests/integration/conftest.py
@@ -240,19 +241,19 @@ backend/tests/integration/test_environment.py
 backend/pyproject.toml
 ```
 
-- [ ] `integration` markerを登録する
-- [ ] DB不要のテストとDB統合テストを別コマンドで実行できるようにする
-- [ ] DynamoDB Localプロセスはセッション開始前にラッパーが1回だけ起動する
-- [ ] セッションごとに一意なテーブル名を作り、同一セッション内では固定する
-- [ ] 各テスト前にテーブルを削除・再作成し、空の状態から開始する
-- [ ] テストデータは各テストのArrange段階で作成する
-- [ ] 安全性契約をSDK呼び出し前に検査する
-- [ ] 設定・resource・tableのキャッシュを開始前後にクリアする
-- [ ] 既存のテーブルschema生成処理を再利用する
-- [ ] テーブル作成後に`DescribeTable`で確認する
-- [ ] 各テストを他テストのデータと分離する
-- [ ] teardownを冪等にする
-- [ ] 実AWS endpointでは必ず失敗する安全性テストを追加する
+- [x] `integration` markerを登録する
+- [x] DB不要のテストとDB統合テストを別コマンドで実行できるようにする
+- [x] DynamoDB Localプロセスはセッション開始前にラッパーが1回だけ起動する
+- [x] セッションごとに一意なテーブル名を作り、同一セッション内では固定する
+- [x] 各テスト前にテスト専用テーブルを削除・再作成し、空の状態から開始する
+- [x] テストデータは各テストのArrange段階で作成する
+- [x] 安全性契約をSDK呼び出し前に検査する
+- [x] 設定・resource・tableのキャッシュを開始前後にクリアする
+- [x] 既存のテーブルschema生成処理を再利用する
+- [x] テーブル作成後に`DescribeTable`で確認する
+- [x] 各テストを他テストのデータと分離する
+- [x] teardownを冪等にする
+- [x] 実AWS endpointでは必ず失敗する安全性テストを追加する
 
 `test_environment.py`は環境だけを検証し、購入物登録などの未実装契約を先回りしてテストしない。
 
@@ -263,9 +264,9 @@ backend/pyproject.toml
 - 1件の汎用的なput/get
 - fixture終了後のキャッシュとテストデータの分離
 
-完了条件: 環境スモークが成功し、機能テストをまだ追加していない状態を維持する。
+完了条件: **達成済み。** 環境スモークが成功し、機能テストを追加していない状態を維持している。
 
-### Step 3: Work Environment Gateを検証する
+### Step 3: Work Environment Gateを検証する（技術検証済み / 人間承認待ち）
 
 最低限、次を記録する。
 
@@ -282,27 +283,30 @@ backend/pyproject.toml
 | endpoint未設定 | SDK呼び出し前にFail |
 | 非loopback endpoint | SDK呼び出し前にFail |
 | checksum不一致 | JAR実行前にFail |
+| Javaプロセス起動失敗 | `ENVIRONMENT_FAILURE`、exit 70 |
+| ログ作成・checksum読み取り等のOS失敗 | `ENVIRONMENT_FAILURE`、exit 70 |
 | 子コマンド失敗 | 終了コードを保持し、DynamoDB Localを停止 |
 
 Environment Gate:
 
-- [ ] 取得元、バージョン、SHA-256が固定されている
-- [ ] 単一コマンドで起動、ready check、子コマンド、停止が行われる
-- [ ] 実AWSへ接続しないfail-closed検査がある
-- [ ] 設定キャッシュがテスト間で分離される
-- [ ] 環境スモークが連続して成功する
-- [ ] 既存unit testが回帰していない
-- [ ] 失敗を`ENVIRONMENT_FAILURE`として判別できる
+- [x] 取得元、バージョン、SHA-256が固定されている
+- [x] 単一コマンドで起動、ready check、子コマンド、停止が行われる
+- [x] 実AWSへ接続しないfail-closed検査がある
+- [x] 設定キャッシュがテスト間で分離される
+- [x] 環境スモークが連続して成功する
+- [x] 既存unit testが回帰していない
+- [x] 環境・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として判別できる
 - [ ] 人間がTDDテスト作成開始を承認した
 
-完了条件: 状態を`ENVIRONMENT_READY`として記録できる。
+技術判定は`ENVIRONMENT_READY`である。完了条件のうち人間承認だけが未完了であり、
+承認されるまで機能TDDを開始しない。
 
 ### Step 4: TDD計画へ環境証跡を反映する
 
-- [ ] 環境整備専用コミットSHAを記録する
-- [ ] 実行コマンドと結果を記録する
+- [x] 環境整備専用コミットSHAを記録する
+- [x] 実行コマンドと結果を記録する
 - [ ] PR #14で記録したGAP-002の解消状況を更新する
-- [ ] 環境整備とTDDテストのコミットを分離する
+- [x] 環境整備とTDDテストのコミットを分離する（機能TDDテストは未作成）
 - [ ] 環境整備PRをマージする
 - [ ] 最新`main`でBaselineを再実行する
 - [ ] TDD開始基準コミットSHAを固定する
@@ -435,16 +439,16 @@ test: complete purchase creation post-implementation verification
 
 ## 13. TDD開始前の最終チェックリスト
 
-- [ ] PR #14がマージ済み
-- [ ] PR #15がマージ済み
-- [ ] Work用環境整備PRがマージ済み
-- [ ] DynamoDB Local 3.3.1とSHA-256がロックファイルに固定済み
-- [ ] fail-closed検査が自動テスト済み
-- [ ] APIレベルready checkが成功
-- [ ] pytest integration fixtureが実AWSへ接続しない
-- [ ] 設定キャッシュを開始前後にクリア
-- [ ] 環境スモークが連続2回成功
-- [ ] 既存unit testが成功
+- [x] PR #14がマージ済み
+- [x] PR #15がマージ済み
+- [ ] Work用環境整備PR（PR #16）がマージ済み
+- [x] DynamoDB Local 3.3.1とSHA-256がロックファイルに固定済み
+- [x] fail-closed検査が自動テスト済み
+- [x] APIレベルready checkが成功
+- [x] pytest integration fixtureが実AWSへ接続しない
+- [x] 設定キャッシュを開始前後にクリア
+- [x] 環境スモークが連続2回成功
+- [x] 既存unit testが成功
 - [ ] TDD計画のGAP-002を解消済み
 - [ ] 最新`main`の基準コミットSHAを記録
 - [ ] 人間がEnvironment Gateを承認
