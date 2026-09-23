@@ -1,6 +1,17 @@
-# Work Environment Gate 実行証跡
+# テスト環境 Environment Gate 実行証跡
 
-## 判定
+## 現在の状態
+
+`ENVIRONMENT_REVALIDATION_REQUIRED`
+
+PR #19でDynamoDB Localの取得経路をCloudFront配布アーカイブからMaven Centralへ変更し、
+Maven Wrapper、POM、推移依存関係、proxy設定をテスト環境の一部へ追加した。これは環境コードの
+変更であるため、以下の旧方式の証跡と人間承認を、現在のMaven方式のGate根拠へ流用しない。
+
+Maven方式について、WorkとClaude Codeの両方で同一コマンドによるEnvironment Gateを連続2回
+実行し、新しい検証済みSHAを記録した後に人間の再承認を受ける。完了するまで機能TDDを開始しない。
+
+## 旧CloudFront方式の判定
 
 `ENVIRONMENT_READY`
 
@@ -109,4 +120,4 @@ Environment Gateを再実行する必要もない。
 
 購入物登録TDDを開始するAgentは、PR #17マージ後の最新`main`からブランチを作成し、
 実際の分岐元を**TDD作業開始SHA**としてTDD実行記録へ別途記録する。
-`docs/specs/purchase-create-tdd-plan.md`のGAP-002は解消済みであり、Environment Gateも人間承認済みである。残る開始条件は、人間による明示的な「TDD開始」指示である。
+`docs/specs/purchase-create-tdd-plan.md`のGAP-002は旧CloudFront方式では解消済みだった。PR #19のマージ後は、Maven方式のWork・Claude Code再検証、新しい検証済みSHAの記録、人間によるEnvironment Gate再承認が必要である。その後も、機能TDDの開始には人間による明示的な「TDD開始」指示を別途必要とする。
