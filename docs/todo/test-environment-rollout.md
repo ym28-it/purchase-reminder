@@ -11,7 +11,7 @@
 | 項目 | 値 |
 |---|---|
 | 更新日 | 2026-09-23 |
-| 基準`main` | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
+| Environment Gate検証済みSHA | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
 | 環境整備PR | PR #16（マージ済み） |
 | 対象 | ChatGPT Work、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
@@ -305,11 +305,15 @@ Environment Gate:
 
 - [x] 環境整備専用コミットSHAを記録する
 - [x] 実行コマンドと結果を記録する
-- [ ] PR #14で記録したGAP-002の解消状況を更新する
+- [x] PR #14で記録したGAP-002の解消状況を更新する
 - [x] 環境整備とTDDテストのコミットを分離する（機能TDDテストは未作成）
 - [x] 環境整備PRをマージする
 - [x] 最新`main`でBaselineを再実行する
-- [x] TDD開始基準コミットSHAを固定する
+- [x] Environment Gate検証済みSHAを固定する
+
+Environment Gate検証済みSHAは、環境コードまたはテスト基盤を変更した場合に再検証して更新する。
+文書だけの変更では更新しない。TDDを開始するAgentは、その時点の最新`main`からブランチを作成し、
+実際の分岐元をTDD作業開始SHAとしてTDD実行記録へ記録する。
 
 ここまで完了するまで、承認済みの購入物登録TDDテストコードを作成しない。
 
@@ -449,8 +453,8 @@ test: complete purchase creation post-implementation verification
 - [x] 設定キャッシュを開始前後にクリア
 - [x] 環境スモークが連続2回成功
 - [x] 既存unit testが成功
-- [ ] TDD計画のGAP-002を解消済み
-- [x] 最新`main`の基準コミットSHAを記録
+- [x] TDD計画のGAP-002を解消済み
+- [x] Environment Gate検証済みSHAを記録
 - [ ] 人間がEnvironment Gateを承認
 - [ ] 人間が「TDD開始」を指示
 
