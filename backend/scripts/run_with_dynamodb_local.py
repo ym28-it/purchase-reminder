@@ -10,15 +10,15 @@ import signal
 import socket
 import subprocess
 import sys
-import tarfile
 import tempfile
 import time
 import uuid
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn
-from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.parse import unquote, urlparse
+from xml.sax.saxutils import escape
 
 from scripts.dynamodb_test_environment import (
     DEFAULT_LOCAL_PORT,
@@ -33,6 +33,11 @@ from scripts.dynamodb_test_environment import (
 MINIMUM_JAVA_MAJOR = 17
 READY_TIMEOUT_SECONDS = 30
 ENVIRONMENT_FAILURE_EXIT = 70
+DYNAMODB_LOCAL_GROUP_ID = "software.amazon.dynamodb"
+DYNAMODB_LOCAL_ARTIFACT_ID = "DynamoDBLocal"
+DYNAMODB_LOCAL_MAIN_CLASS = "software.amazon.dynamodb.services.local.main.ServerRunner"
+MAVEN_DEPENDENCY_PLUGIN_GROUP_ID = "org.apache.maven.plugins"
+MAVEN_DEPENDENCY_PLUGIN_ARTIFACT_ID = "maven-dependency-plugin"
 
 
 class EnvironmentSetupError(RuntimeError):
@@ -40,26 +45,51 @@ class EnvironmentSetupError(RuntimeError):
 
 
 @dataclass(frozen=True)
-class DynamoDBLocalLock:
+class DynamoDBLocalRuntime:
     version: str
-    download_url: str
-    sha256: str
+    dependency_plugin_version: str
+    pom_path: Path
 
 
 def _fail(message: str) -> NoReturn:
     raise EnvironmentSetupError(message)
 
 
-def _load_lock(path: Path) -> DynamoDBLocalLock:
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _load_runtime(pom_path: Path) -> DynamoDBLocalRuntime:
     try:
-        values = json.loads(path.read_text(encoding="utf-8"))
-        return DynamoDBLocalLock(
-            version=values["version"],
-            download_url=values["download_url"],
-            sha256=values["sha256"],
+        root = ET.parse(pom_path).getroot()
+        namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+        properties = root.find("m:properties", namespace)
+        if properties is None:
+            _fail(f"Maven properties are missing from {pom_path}")
+        version = properties.findtext("m:dynamodb-local.version", namespaces=namespace)
+        plugin_version = properties.findtext(
+            "m:maven-dependency-plugin.version", namespaces=namespace
         )
-    except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
-        _fail(f"invalid lock file {path}: {error}")
+        if not version or not plugin_version:
+            _fail(f"pinned Maven dependency versions are missing from {pom_path}")
+
+        dependency_found = any(
+            dependency.findtext("m:groupId", namespaces=namespace) == DYNAMODB_LOCAL_GROUP_ID
+            and dependency.findtext("m:artifactId", namespaces=namespace)
+            == DYNAMODB_LOCAL_ARTIFACT_ID
+            and dependency.findtext("m:version", namespaces=namespace)
+            == "${dynamodb-local.version}"
+            for dependency in root.findall("m:dependencies/m:dependency", namespace)
+        )
+        if not dependency_found:
+            _fail(f"pinned DynamoDB Local dependency is missing from {pom_path}")
+        return DynamoDBLocalRuntime(version, plugin_version, pom_path)
+    except (OSError, ET.ParseError) as error:
+        _fail(f"invalid Maven runtime POM {pom_path}: {error}")
 
 
 def _run_java_version(java: str) -> str:
@@ -78,56 +108,132 @@ def _run_java_version(java: str) -> str:
     return output.splitlines()[0]
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as file:
-        for chunk in iter(lambda: file.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+def _maven_environment(cache_root: Path) -> dict[str, str]:
+    environment = os.environ.copy()
+    for name in ("MAVEN_ARGS", "MAVEN_OPTS", "MVNW_REPOURL", "MVNW_VERBOSE"):
+        environment.pop(name, None)
+    environment["MAVEN_USER_HOME"] = str(cache_root / "maven-user-home")
+    return environment
 
 
-def _verify_sha256(path: Path, expected: str) -> None:
-    actual = _sha256(path)
-    if actual != expected:
-        _fail(f"checksum mismatch for {path}: expected {expected}, got {actual}")
+def _write_maven_proxy_settings(cache_root: Path) -> Path | None:
+    proxy_value = (
+        os.environ.get("HTTPS_PROXY")
+        or os.environ.get("https_proxy")
+        or os.environ.get("HTTP_PROXY")
+        or os.environ.get("http_proxy")
+    )
+    if not proxy_value:
+        return None
 
-
-def _download(url: str, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = destination.with_suffix(f"{destination.suffix}.{uuid.uuid4().hex}.tmp")
+    parsed = urlparse(proxy_value)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        _fail("HTTP proxy URL is invalid for Maven")
     try:
-        with urlopen(url, timeout=60) as response, temporary.open("wb") as file:
-            shutil.copyfileobj(response, file)
-        temporary.replace(destination)
-    except (OSError, URLError) as error:
-        temporary.unlink(missing_ok=True)
-        _fail(f"DynamoDB Local download failed: {error}")
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError as error:
+        _fail(f"HTTP proxy port is invalid for Maven: {error}")
 
+    non_proxy_hosts = (
+        os.environ.get("NO_PROXY")
+        or os.environ.get("no_proxy")
+        or "localhost,127.0.0.1"
+    )
+    non_proxy_hosts = "|".join(
+        value.strip() for value in non_proxy_hosts.split(",") if value.strip()
+    )
+    credentials = ""
+    if parsed.username is not None:
+        credentials += f"      <username>{escape(unquote(parsed.username))}</username>\n"
+    if parsed.password is not None:
+        credentials += f"      <password>{escape(unquote(parsed.password))}</password>\n"
 
-def _extract_archive(archive: Path, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = Path(tempfile.mkdtemp(prefix=f".{destination.name}-", dir=destination.parent))
+    settings = (
+        '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"\n'
+        '          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n'
+        '          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 '
+        'https://maven.apache.org/xsd/settings-1.0.0.xsd">\n'
+        "  <proxies>\n"
+        "    <proxy>\n"
+        "      <id>environment-proxy</id>\n"
+        "      <active>true</active>\n"
+        f"      <protocol>{escape(parsed.scheme)}</protocol>\n"
+        f"      <host>{escape(parsed.hostname)}</host>\n"
+        f"      <port>{port}</port>\n"
+        f"{credentials}"
+        f"      <nonProxyHosts>{escape(non_proxy_hosts)}</nonProxyHosts>\n"
+        "    </proxy>\n"
+        "  </proxies>\n"
+        "</settings>\n"
+    )
+    cache_root.mkdir(parents=True, exist_ok=True)
+    settings_path = cache_root / f".maven-settings-{uuid.uuid4().hex}.xml"
     try:
-        with tarfile.open(archive, mode="r:gz") as bundle:
-            bundle.extractall(temporary, filter="data")
-        if not (temporary / "DynamoDBLocal.jar").is_file():
-            _fail("DynamoDBLocal.jar is missing from the verified archive")
-        if not (temporary / "DynamoDBLocal_lib").is_dir():
-            _fail("DynamoDBLocal_lib is missing from the verified archive")
-        if destination.exists():
-            shutil.rmtree(destination)
-        temporary.replace(destination)
-    except (OSError, tarfile.TarError) as error:
-        _fail(f"DynamoDB Local extraction failed: {error}")
-    finally:
-        if temporary.exists():
-            shutil.rmtree(temporary)
+        settings_path.write_text(settings, encoding="utf-8")
+        settings_path.chmod(0o600)
+    except OSError as error:
+        settings_path.unlink(missing_ok=True)
+        _fail(f"unable to create temporary Maven settings: {error}")
+    return settings_path
 
 
-def _read_dynamodb_version(java: str, jar: Path) -> str:
+def _run_maven(
+    repository_root: Path,
+    cache_root: Path,
+    arguments: list[str],
+    *,
+    timeout: int,
+) -> str:
+    wrapper = repository_root / "mvnw"
+    if not wrapper.is_file():
+        _fail(f"Maven Wrapper is missing: {wrapper}")
+
+    settings_path = _write_maven_proxy_settings(cache_root)
+    command = ["sh", str(wrapper)]
+    if settings_path is not None:
+        command.extend(["-s", str(settings_path)])
+    command.extend(arguments)
     try:
         result = subprocess.run(
-            [java, "-jar", str(jar), "-version"],
+            command,
+            cwd=repository_root,
+            env=_maven_environment(cache_root),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        _fail(f"unable to execute Maven Wrapper: {error}")
+    finally:
+        if settings_path is not None:
+            settings_path.unlink(missing_ok=True)
+
+    output = (result.stdout + result.stderr).strip()
+    if result.returncode != 0:
+        tail = "\n".join(output.splitlines()[-20:])
+        _fail(f"Maven command failed with exit {result.returncode}: {tail}")
+    return output
+
+
+def _run_maven_version(repository_root: Path, cache_root: Path) -> str:
+    output = _run_maven(repository_root, cache_root, ["--version"], timeout=120)
+    first_line = output.splitlines()[0] if output else ""
+    if not first_line.startswith("Apache Maven "):
+        _fail(f"unable to determine Maven version: {output}")
+    return first_line
+
+
+def _read_dynamodb_version(java: str, dependencies: Path) -> str:
+    try:
+        result = subprocess.run(
+            [
+                java,
+                "-cp",
+                str(dependencies / "*"),
+                DYNAMODB_LOCAL_MAIN_CLASS,
+                "-version",
+            ],
             capture_output=True,
             text=True,
             timeout=15,
@@ -144,28 +250,101 @@ def _read_dynamodb_version(java: str, jar: Path) -> str:
     return match.group(1)
 
 
+def _dependencies_complete(runtime: DynamoDBLocalRuntime, dependencies: Path) -> bool:
+    jar = dependencies / f"{DYNAMODB_LOCAL_ARTIFACT_ID}-{runtime.version}.jar"
+    native_libraries = (
+        list(dependencies.glob("libsqlite4java-*.so"))
+        + list(dependencies.glob("libsqlite4java-*.dylib"))
+        + list(dependencies.glob("sqlite4java-*.dll"))
+    )
+    return jar.is_file() and bool(native_libraries)
+
+
+def _resolve_maven_dependencies(
+    runtime: DynamoDBLocalRuntime,
+    repository_root: Path,
+    cache_root: Path,
+    destination: Path,
+) -> None:
+    plugin = (
+        f"{MAVEN_DEPENDENCY_PLUGIN_GROUP_ID}:"
+        f"{MAVEN_DEPENDENCY_PLUGIN_ARTIFACT_ID}:"
+        f"{runtime.dependency_plugin_version}:copy-dependencies"
+    )
+    local_repository = cache_root / "maven-repository"
+    _run_maven(
+        repository_root,
+        cache_root,
+        [
+            "-q",
+            "-B",
+            "-ntp",
+            "-f",
+            str(runtime.pom_path),
+            f"-Dmaven.repo.local={local_repository}",
+            plugin,
+            f"-DoutputDirectory={destination}",
+            "-DincludeScope=runtime",
+        ],
+        timeout=300,
+    )
+
+
 def _prepare_distribution(
-    lock: DynamoDBLocalLock,
+    runtime: DynamoDBLocalRuntime,
+    repository_root: Path,
     cache_root: Path,
     java: str,
-) -> tuple[Path, Path]:
-    version_root = cache_root / lock.version
-    archive = version_root / "dynamodb_local.tar.gz"
-    distribution = version_root / "distribution"
-    if not archive.exists():
-        _download(lock.download_url, archive)
-    _verify_sha256(archive, lock.sha256)
-    if not distribution.exists():
-        _extract_archive(archive, distribution)
+) -> Path:
+    version_root = cache_root / runtime.version
+    dependencies = version_root / "dependencies"
+    marker = version_root / "maven-resolved.json"
+    pom_sha256 = _sha256(runtime.pom_path)
+    expected_marker = {
+        "coordinate": (
+            f"{DYNAMODB_LOCAL_GROUP_ID}:{DYNAMODB_LOCAL_ARTIFACT_ID}:{runtime.version}"
+        ),
+        "pom_sha256": pom_sha256,
+    }
 
-    jar = distribution / "DynamoDBLocal.jar"
-    library = distribution / "DynamoDBLocal_lib"
-    if not jar.is_file() or not library.is_dir():
-        _fail("cached DynamoDB Local distribution is incomplete")
-    actual_version = _read_dynamodb_version(java, jar)
-    if actual_version != lock.version:
-        _fail(f"DynamoDB Local version mismatch: expected {lock.version}, got {actual_version}")
-    return jar, library
+    marker_matches = False
+    try:
+        marker_matches = json.loads(marker.read_text(encoding="utf-8")) == expected_marker
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    if not marker_matches or not _dependencies_complete(runtime, dependencies):
+        version_root.mkdir(parents=True, exist_ok=True)
+        temporary = Path(
+            tempfile.mkdtemp(prefix=".dependencies-", dir=version_root)
+        )
+        try:
+            _resolve_maven_dependencies(
+                runtime, repository_root, cache_root, temporary
+            )
+            if not _dependencies_complete(runtime, temporary):
+                _fail("Maven resolved an incomplete DynamoDB Local runtime")
+            if dependencies.exists():
+                shutil.rmtree(dependencies)
+            temporary.replace(dependencies)
+            marker_temporary = marker.with_suffix(f".{uuid.uuid4().hex}.tmp")
+            marker_temporary.write_text(
+                json.dumps(expected_marker, indent=2) + "\n", encoding="utf-8"
+            )
+            marker_temporary.replace(marker)
+        except OSError as error:
+            _fail(f"unable to cache Maven dependencies: {error}")
+        finally:
+            if temporary.exists():
+                shutil.rmtree(temporary)
+
+    actual_version = _read_dynamodb_version(java, dependencies)
+    if actual_version != runtime.version:
+        _fail(
+            f"DynamoDB Local version mismatch: expected {runtime.version}, "
+            f"got {actual_version}"
+        )
+    return dependencies
 
 
 def _assert_port_available(port: int) -> None:
@@ -248,7 +427,7 @@ def _parse_arguments() -> argparse.Namespace:
 
 def _run(arguments: argparse.Namespace) -> int:
     repository_root = Path(__file__).resolve().parents[2]
-    lock_path = repository_root / "backend" / "dynamodb-local.lock.json"
+    pom_path = repository_root / "tools" / "java-runtime" / "pom.xml"
     cache_root = repository_root / ".cache" / "dynamodb-local"
     java = shutil.which("java")
     if java is None:
@@ -258,8 +437,11 @@ def _run(arguments: argparse.Namespace) -> int:
     log_file = None
     try:
         java_version = _run_java_version(java)
-        lock = _load_lock(lock_path)
-        jar, library = _prepare_distribution(lock, cache_root, java)
+        maven_version = _run_maven_version(repository_root, cache_root)
+        runtime = _load_runtime(pom_path)
+        dependencies = _prepare_distribution(
+            runtime, repository_root, cache_root, java
+        )
         try:
             port = (
                 arguments.port
@@ -274,15 +456,16 @@ def _run(arguments: argparse.Namespace) -> int:
 
         session_id = uuid.uuid4().hex
         environment = _sanitized_environment(port, session_id)
-        log_path = cache_root / lock.version / "logs" / f"{session_id}.log"
+        log_path = cache_root / runtime.version / "logs" / f"{session_id}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_file = log_path.open("wb")
         process = subprocess.Popen(
             [
                 java,
-                f"-Djava.library.path={library}",
-                "-jar",
-                str(jar),
+                f"-Djava.library.path={dependencies}",
+                "-cp",
+                str(dependencies / "*"),
+                DYNAMODB_LOCAL_MAIN_CLASS,
                 "-inMemory",
                 "-sharedDb",
                 "-port",
@@ -296,8 +479,14 @@ def _run(arguments: argparse.Namespace) -> int:
         print(f"DynamoDB Local log: {log_path}", flush=True)
         _wait_until_ready(process, environment)
         print(f"Java version: {java_version}", flush=True)
-        print(f"Distribution checksum: {lock.sha256}", flush=True)
-        print(f"DynamoDB Local version: {lock.version}", flush=True)
+        print(f"Maven version: {maven_version}", flush=True)
+        print(
+            "Dependency coordinate: "
+            f"{DYNAMODB_LOCAL_GROUP_ID}:{DYNAMODB_LOCAL_ARTIFACT_ID}:{runtime.version}",
+            flush=True,
+        )
+        print(f"Runtime POM SHA-256: {_sha256(runtime.pom_path)}", flush=True)
+        print(f"DynamoDB Local version: {runtime.version}", flush=True)
         print(f"API ready check: PASS ({environment['DYNAMODB_ENDPOINT_URL']})", flush=True)
         print(f"Test table: {environment['DYNAMODB_TABLE_NAME']}", flush=True)
         print(f"DynamoDB Local PID: {process.pid}", flush=True)
