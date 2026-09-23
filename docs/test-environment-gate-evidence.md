@@ -16,7 +16,7 @@ Maven方式はWorkで連続2回のEnvironment Gateを通過した。Claude Code�
 | 項目 | 値 |
 |---|---|
 | 実行日 | 2026-09-23 |
-| 環境コード基準 | `ec802a8d7e7bfcc2fe1dfd9d1872f4294d2d0e19` |
+| Work検証対象SHA | `0ad3e352362750218d5233bfd5798daffcfc8664` |
 | 実行環境 | ChatGPT Work / Ubuntu 24.04.3 LTS / x86_64 |
 | Python | 3.14.7 |
 | Java | OpenJDK 17.0.20 |
@@ -45,7 +45,7 @@ uv run python -m scripts.run_with_dynamodb_local \
 | DynamoDB Local version | 3.3.1 | 3.3.1 |
 | API ready check | Pass | Pass |
 | DynamoDB Local停止 | Pass | Pass |
-| セッションID | `bfc8bb0439244670805c3d81508bd04d` | `2d3a765132a3434488944a46bfeb7bd3` |
+| セッションID | `2c7aaf35ec8d4f2c9ca26d6fc0c7c15c` | `2913fd0b77e74d1fbba38b38bda860fd` |
 
 追加の負系確認:
 
