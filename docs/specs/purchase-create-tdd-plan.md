@@ -28,10 +28,15 @@
 | ID | 不足情報 | 影響する契約・Test Case ID | 分類 | 必要な確認 | 状態 |
 |---|---|---|---|---|---|
 | GAP-001 | 認証主体のテスト時注入方法 | PURC-CORE-003 | Important | FastAPIのdependency overrideで現在利用者を差し替える。Cognito自体は対象外とする | Resolved |
-| GAP-002 | 現在のWork実行環境にDockerがなく、DynamoDB Localを起動できない | PURC-CORE-001, PURC-CORE-003, PURC-CORE-004 | Important | Red実行前にDynamoDB Localを利用できる実行環境を用意する。代替エミュレーターへの変更は契約オーナーの承認なしに行わない | Open |
+| GAP-002 | 現在のWork実行環境にDockerがなく、DynamoDB Localを起動できない | PURC-CORE-001, PURC-CORE-003, PURC-CORE-004 | Important | Java/JAR共通ランナーでDynamoDB Localを起動し、最新`main`からEnvironment Gateを2回連続で通過した。証跡は`docs/test-environment-gate-evidence.md`を参照する | Resolved |
 | GAP-003 | Frontend buildに必要な`src/routeTree.gen`が基準コミットに存在せず、buildが失敗する | PURC-CORE-001, PURC-CORE-002 | Important | 今回のRedとは分離する。Green Gateまでに生成手順または生成物を整備し、buildを成功させる | Open |
 
-GAP-002とGAP-003は仕様上の期待結果を変えないため、Core Contract GateのBlocking事項にはしない。ただし、GAP-002を解消できず統合テストを実行できない場合、テストエージェントは`ENVIRONMENT_FAILURE`として停止する。
+GAP-002は、PR #16で追加したJava/JAR共通ランナーとpytest統合テスト基盤を、
+Environment Gate検証済みSHA `2983f363565f09cf364dfd0d6ae20c7846c3cc01`で2回連続検証したため解消済みである。
+テストエージェントは機能テストのRed確認前に環境スモークを実行し、失敗した場合は
+機能契約の不成立ではなく`ENVIRONMENT_FAILURE`として停止する。
+
+GAP-003は仕様上の期待結果を変えないため、Core Contract GateのBlocking事項にはしない。
 
 ## 中心的契約
 
