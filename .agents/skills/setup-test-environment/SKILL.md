@@ -14,7 +14,7 @@ Read these files before changing anything:
 - `CLAUDE.md`
 - `docs/todo/test-environment-rollout.md`
 
-Treat the rollout document as authoritative for versions, checksums, safety checks, lifecycle, file scope, and Environment Gate criteria. Do not duplicate or reinterpret its contract. If it is missing, still marked unapproved, or conflicts with the repository state, stop and report the blocker.
+Treat the rollout document as authoritative for Java and Maven versions, Maven coordinates, wrapper checksum, safety checks, lifecycle, file scope, and Environment Gate criteria. Do not duplicate or reinterpret its contract. If it is missing, still marked unapproved, or conflicts with the repository state, stop and report the blocker.
 
 ## Scope
 
@@ -30,7 +30,7 @@ Treat the rollout document as authoritative for versions, checksums, safety chec
 
 1. Determine whether the environment work is absent, partial, or already implemented.
 2. Confirm that all SDK access is guarded before the first possible real-AWS call.
-3. Implement the missing rollout steps as one coherent environment change, reusing `MAIN_TABLE_SCHEMA` and the application DynamoDB access path.
+3. Implement the missing rollout steps as one coherent environment change, reusing the root Maven Wrapper, `tools/java-runtime/pom.xml`, `MAIN_TABLE_SCHEMA`, and the application DynamoDB access path.
 4. Run existing backend unit tests without the DynamoDB Local runner.
 5. Run integration and environment smoke tests through the approved runner.
 6. Execute the complete Environment Gate twice consecutively, including negative fail-closed cases and child-process cleanup.
@@ -38,7 +38,7 @@ Treat the rollout document as authoritative for versions, checksums, safety chec
 
 ## Stop conditions
 
-Stop without treating the result as a feature-test failure when any prerequisite, download, checksum, Java, startup, readiness, safety, cleanup, or environment-smoke check fails. Classify it as `ENVIRONMENT_FAILURE`, preserve useful logs, and do not proceed to feature TDD.
+Stop without treating the result as a feature-test failure when any prerequisite, Maven Wrapper bootstrap, Maven Central dependency resolution, checksum, Java, startup, readiness, safety, cleanup, or environment-smoke check fails. Classify it as `ENVIRONMENT_FAILURE`, preserve useful logs, and do not proceed to feature TDD.
 
 Finish by reporting exactly one state:
 
