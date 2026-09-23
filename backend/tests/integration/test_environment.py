@@ -1,5 +1,6 @@
 """Environment-only smoke and fail-closed tests for DynamoDB Local."""
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -150,6 +151,28 @@ def test_java_process_start_oserror_returns_environment_failure(
 
     assert runner.main() == runner.ENVIRONMENT_FAILURE_EXIT
     assert "ENVIRONMENT_FAILURE: java process start denied" in capsys.readouterr().err
+
+
+def test_java_version_label_ignores_java_tool_options_notice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    version_line = 'openjdk version "17.0.20" 2026-07-21'
+    output = "\n".join(
+        [
+            "Picked up JAVA_TOOL_OPTIONS: -Dhttps.proxyHost=127.0.0.1",
+            version_line,
+            "OpenJDK Runtime Environment (build 17.0.20+8)",
+        ]
+    )
+
+    def fake_java_version(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=["java", "-version"], returncode=0, stdout="", stderr=output
+        )
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_java_version)
+
+    assert runner._run_java_version("java") == version_line
 
 
 def test_cache_clear_removes_all_cached_aws_objects(
