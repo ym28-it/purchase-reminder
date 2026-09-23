@@ -16,13 +16,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。DynamoDBの汎用モデル基盤には単体テストがあるが、purchase CRUD、services、API、frontendのテストは未整備。Cognito認証、購入タイミングのドメインロジック、通知、Terraform、デプロイ、E2Eは未実装。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
 
-### 現在の優先作業: 4エージェント開発サイクルの実行Skills整備
+### 現在の優先作業: Maven方式のテスト環境再検証
 
-[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)のStep 1〜3とWork Environment Gateは実装・検証・人間承認済みである。環境コードまたはテスト基盤を変更しない限り、機能TDDのたびに環境を再構築せず、既存の実行ラッパーとfixtureを利用する。
+PR #16で構築したCloudFront直接取得方式のEnvironment Gateは検証・人間承認済みだったが、PR #19でDynamoDB Localの依存取得をMaven Centralへ変更する。環境コードを変更するため、旧証跡を現在のGate根拠へ流用しない。
 
-開発は[4エージェント＋オーケストレーター開発運用](docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)に従う。次の整備対象は、仕様、TDDテスト、実装、実装後テスト、最終レビューを役割境界どおり実行するSkillsである。Skills整備自体は購入物登録の機能TDD開始を意味しない。人間が明示的に「TDD開始」を指示するまで、購入物登録の機能テストとプロダクトコードを変更しない。
+[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)をsource of truthとして、同じMaven Wrapper、`tools/java-runtime/pom.xml`、PythonランナーをWork、Claude Code、Pull Request Actionsで使用する。WorkとClaude Codeの両方でEnvironment Gateを再検証し、人間が更新後のGateを承認するまで、購入物登録の機能テストとプロダクトコードを変更しない。
 
-テスト環境の確認・修復が必要な場合だけ、Claude Codeでは`/setup-test-environment`、対応するWork環境では`$setup-test-environment` Skillを明示的に呼び出す。このSkillは環境構築と検証だけを担当し、機能TDDへ進まない。
+テスト環境の構築・確認・修復は、Claude Codeでは`/setup-test-environment`、対応するWork環境では`$setup-test-environment` Skillを明示的に呼び出して開始する。このSkillは環境構築と検証だけを担当し、機能TDDへ進まない。Environment Gate再承認後の次工程は、[4エージェント＋オーケストレーター開発運用](docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)に従う実行Skillsの整備である。Skills整備自体も、人間による明示的な「TDD開始」を意味しない。
 
 ## 開発分担（仕様駆動）
 
@@ -119,7 +119,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `.github/workflows/lint.yml` — backendの `ruff check`/`ruff format --check` とfrontendの `bun run lint`/`bun run format:check`
 - `.github/workflows/test.yml` — backendのunit testとfrontendのVitest。frontendはまだテストが無いため `--passWithNoTests` を付けている（テストを書き始めたら外す）
 
-DynamoDB Localを使うintegration testは、`test.yml`のunit testへ混在させない。[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)に従い、Workと同じJava/JAR実行ラッパーを`.github/workflows/integration.yml`から呼び出し、unitとintegrationを別checkとして表示する。Actions固有のサービスコンテナ起動処理は追加しない。E2EはTDD Green後に独立した`e2e.yml`として追加する。
+DynamoDB Localを使うintegration testは、`test.yml`のunit testへ混在させない。[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)に従い、Work・Claude Codeと同じMaven Wrapper、POM、Python実行ラッパーを`.github/workflows/integration.yml`から呼び出し、unitとintegrationを別checkとして表示する。Actions固有のサービスコンテナ起動処理は追加しない。E2EはTDD Green後に独立した`e2e.yml`として追加する。
 
 ## Architecture
 

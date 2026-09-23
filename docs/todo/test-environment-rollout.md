@@ -1,39 +1,40 @@
-# テスト実行環境構築計画（Work / Pull Request / main）
+# テスト実行環境構築計画（Work / Claude Code / Pull Request / main）
 
 ## 1. 文書の目的
 
-この文書は、DynamoDBを本番の永続化方式として維持しながら、AIのリモート実行環境であるChatGPT Work、GitHub Actions、AWS stagingの各段階にテスト環境を構築する手順とゲートを定義する。
+この文書は、DynamoDBを本番の永続化方式として維持しながら、AIのリモート実行環境であるChatGPT Work、Claude Code、GitHub Actions、AWS stagingの各段階にテスト環境を構築する手順とゲートを定義する。
 
-最初の目的は、承認済みの購入物登録TDDテストを作成する前に、Work上でDynamoDB Localを安全かつ再現可能に起動し、環境障害とValid Redを区別できる状態にすることである。
+最初の目的は、承認済みの購入物登録TDDテストを作成する前に、WorkとClaude Code上でDynamoDB Localを安全かつ再現可能に起動し、環境障害とValid Redを区別できる状態にすることである。
 
 この文書はテスト環境の契約と実装順序を定める。個別機能の期待動作は定義せず、機能仕様、論理テストケース、TDD計画をsource of truthとする。
 
 | 項目 | 値 |
 |---|---|
 | 更新日 | 2026-09-23 |
-| Environment Gate検証済みSHA | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
-| 環境整備PR | PR #16（マージ済み） |
-| 対象 | ChatGPT Work、Pull Request Actions、`main`マージ後のAWS staging |
+| 旧CloudFront方式のEnvironment Gate検証済みSHA | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
+| 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行） |
+| 対象 | ChatGPT Work、Claude Code、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | Step 1〜3実装・最新`main`再検証・Environment Gate人間承認済み / 開発サイクル実行Skills整備前 |
+| 状態 | Maven移行実装・Work再検証済み / Claude Code再検証・人間再承認待ち |
 
 ## 2. 基本方針
 
-SQLiteやPostgreSQLで代替せず、WorkとPRではAWS公式のDynamoDB Localを使用する。
+SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDynamoDB Localを使用する。
 
 | 実行場所 | DB | 起動方法 | 主な検証 |
 |---|---|---|---|
-| ChatGPT Work | DynamoDB Local | Java 17以上でJARを直接起動 | TDD、models/API integration、実装中検証 |
-| Pull Request | DynamoDB Local | Workと同じJAR実行ラッパー | unit、component、integration、主要E2E |
+| ChatGPT Work | DynamoDB Local | Maven WrapperでMaven Centralから解決し、Java 17以上で起動 | TDD、models/API integration、実装中検証 |
+| Claude Code | DynamoDB Local | Workと同じMaven Wrapper・POM・Pythonランナー | TDD、models/API integration、実装中検証 |
+| Pull Request | DynamoDB Local | Work・Claude Codeと同じ共通ランナー | unit、component、integration、主要E2E |
 | `main`マージ後 | AWS staging DynamoDB | Terraformで管理 | IAM、デプロイ、smoke、AWS固有挙動、重要E2E |
 | production | AWS DynamoDB | Terraformで管理 | デプロイ前後の最小確認 |
 
 原則:
 
 - PRから実AWSへ接続しない。
-- WorkとPRはdummy credentialだけを使用する。
+- Work、Claude Code、PRはdummy credentialだけを使用する。
 - TDDのRedは、環境起動やfixtureの失敗ではなく、承認済み契約の不成立を理由にする。
-- Workで検証した起動・初期化処理をGitHub Actionsでも再利用し、二重実装を避ける。
+- WorkとClaude Codeで検証したMaven Wrapper、POM、起動・初期化処理をGitHub Actionsでも再利用し、二重実装を避ける。
 - 自動テストはin-memoryモードを標準とする。
 - E2Eを含む実装後テストはTDD Green後に追加する。
 - AWS stagingはWork・PRのテスト基盤が安定してから構築する。
@@ -51,7 +52,8 @@ SQLiteやPostgreSQLで代替せず、WorkとPRではAWS公式のDynamoDB Local�
 | 接続切替 | `DYNAMODB_ENDPOINT_URL`の有無 |
 | テーブル作成 | `backend/scripts/bootstrap_local_table.py` |
 | ローカル開発 | Docker Compose上のDynamoDB Local |
-| Work | Dockerなし、OpenJDK 17あり |
+| Work | Dockerなし、OpenJDK 17あり。HTTP proxyをMaven一時設定へ変換 |
+| Claude Code | Docker利用可否に依存せず、Java 17以上とMaven Central接続を前提 |
 
 ### 3.2 Baseline
 
@@ -60,9 +62,9 @@ SQLiteやPostgreSQLで代替せず、WorkとPRではAWS公式のDynamoDB Local�
 - Frontend lint / format: Pass
 - Frontend tests: 既存テスト0件
 - Frontend build: `src/routeTree.gen`不足による既存失敗
-- Backend integration: 環境スモーク・fail-closedテスト14件
+- Backend integration: 環境スモーク・fail-closed・Maven設定テスト15件
 - E2E: READMEのみ
-- WorkからAWS公式のDynamoDB Local配布URLとchecksum URLへ到達可能
+- WorkとClaude CodeからMaven Centralへ到達可能。環境ごとの完全なGate再検証はPR #19で実施する
 
 ### 3.3 承認済みTDD計画との関係
 
@@ -72,43 +74,57 @@ SQLiteやPostgreSQLで代替せず、WorkとPRではAWS公式のDynamoDB Local�
 
 ## 4. Work環境仕様
 
-### 4.1 DynamoDB Local
+### 4.1 MavenとDynamoDB Local
 
-- DynamoDB Local `3.3.1`を使用する。
-- 公式配布URLは`https://d1ni2b6xgvw0s0.cloudfront.net/v2.x/dynamodb_local_latest.tar.gz`とする。
-- 配布アーカイブの期待SHA-256は`f80bcec477f85f57e2c77f8d54aa6b672a8403fceff0c450560aee1cf6c21163`とする。
-- 実行前にアーカイブのSHA-256とJARの`-version`出力（`3.3.1`）を検証する。
-- `latest` URL側のchecksumを実行時の信頼元にせず、レビュー済みの期待SHA-256と照合する。
-- バージョン更新はロックファイルを変更する専用PRで行う。
-- JAR、native library、DBファイル、PID、ログはGit管理しない。
+- Java 17以上を実行ランタイムとする。Java自体のインストールやバージョン管理はMavenの責務にしない。
+- Maven Wrapper `3.3.4`とApache Maven `3.9.16`をリポジトリ直下へ固定する。
+- Maven配布物はMaven Centralの固定URLから取得し、`.mvn/wrapper/maven-wrapper.properties`のSHA-256で検証する。
+- DynamoDB LocalはMaven Centralの`software.amazon.dynamodb:DynamoDBLocal:3.3.1`として固定する。
+- `tools/java-runtime/pom.xml`をJava製テストツール依存関係のsource of truthとする。
+- POMではreleaseだけを有効にし、checksum不一致を失敗として扱う。
+- Maven Wrapper、Maven Central解決、POM読取、Java起動の失敗はすべて`ENVIRONMENT_FAILURE`、exit 70とする。
+- Workで`HTTPS_PROXY`等が設定されている場合、ランナーが認証情報をGit管理せず一時的なMaven settingsへ変換し、実行後に削除する。
+- Mavenのローカルリポジトリ、解決済みJAR、native library、DBファイル、PID、ログはGit管理しない。
 
-ロックファイル:
+管理ファイル:
 
 ```text
-backend/dynamodb-local.lock.json
+mvnw
+mvnw.cmd
+.mvn/wrapper/maven-wrapper.properties
+tools/java-runtime/pom.xml
 ```
 
 キャッシュ:
 
 ```text
-.cache/dynamodb-local/3.3.1/
+.cache/dynamodb-local/
+├── maven-user-home/
+├── maven-repository/
+└── 3.3.1/
+    ├── dependencies/
+    ├── logs/
+    └── maven-resolved.json
 ```
+
+POMまたは固定バージョンを変更した場合、POMのSHA-256とmarkerが一致しなくなるため、ランナーは依存関係を再解決する。バージョン更新は専用PRで行い、WorkとClaude CodeのEnvironment Gateを再実行する。
 
 ### 4.2 起動モード
 
-自動テスト:
+自動テストでは、Mavenが解決したclasspathとnative library directoryを使って起動する。
 
 ```bash
 java \
-  -Djava.library.path=<cache>/DynamoDBLocal_lib \
-  -jar <cache>/DynamoDBLocal.jar \
+  -Djava.library.path=<cache>/dependencies \
+  -cp '<cache>/dependencies/*' \
+  software.amazon.dynamodb.services.local.main.ServerRunner \
   -inMemory \
   -sharedDb \
   -port <port> \
   -disableTelemetry
 ```
 
-自動テストでは、ラッパーがpytestセッションの開始前にDynamoDB Localを1回だけ起動し、子コマンド終了後に停止する。pytest fixtureはプロセスを起動・停止せず、ラッパーが用意した接続先を使用する。ラッパーを介さずintegration testを実行した場合は`ENVIRONMENT_FAILURE`として停止する。
+ラッパーはpytestセッションの開始前にDynamoDB Localを1回だけ起動し、子コマンド終了後に停止する。pytest fixtureはプロセスを起動・停止せず、ラッパーが用意した接続先を使用する。ラッパーを介さずintegration testを実行した場合は`ENVIRONMENT_FAILURE`として停止する。
 
 手動デバッグで状態保持が必要な場合だけ、`-inMemory`を外して専用の`-dbPath`を指定する。
 
@@ -186,40 +202,44 @@ portが開いていることだけをready判定にしない。
 - [x] PR #14のTDD計画をマージする
 - [x] PR #15を最新の`main`へ追従させる
 - [x] DynamoDB LocalをWork・PRの共通DBとする方針を人間が承認する
-- [x] DynamoDB Local 3.3.1とSHA-256を固定する
+- [x] DynamoDB Local 3.3.1、Maven 3.9.16、Maven Wrapper配布物SHA-256を固定する
 - [x] port、キャッシュ場所、テスト用table prefixを固定する
 - [x] pytestセッション、テーブル再作成、空の初期状態を固定する
 - [x] Environment Gateの判定項目を承認する
 
 完了条件: 環境仕様と基準コミットが固定されている。
 
-### Step 1: Work用ランタイムラッパーを実装する（実装・検証済み）
+### Step 1: 共通ランタイムラッパーを実装する（Maven移行実装済み / 再検証待ち）
 
 成果物:
 
 ```text
-backend/dynamodb-local.lock.json
+mvnw
+mvnw.cmd
+.mvn/wrapper/maven-wrapper.properties
+tools/java-runtime/pom.xml
 backend/scripts/run_with_dynamodb_local.py
 .gitignore
 ```
 
-ラッパーは次を1コマンドで行う。すべて実装済みである。
+ラッパーは次を1コマンドで行う。
 
 1. [x] Java 17以上を確認
-2. [x] ロックファイルを読む
-3. [x] キャッシュ済み配布物のchecksumを確認
-4. [x] 未取得なら公式配布元からダウンロード
-5. [x] 期待SHA-256を照合
-6. [x] 安全なキャッシュ先へ展開
-7. [x] 未使用portを確認
-8. [x] in-memoryモードで起動
-9. [x] APIレベルのready check
-10. [x] 子コマンドをサニタイズした環境変数で実行
-11. [x] 終了コードを保持
-12. [x] 自分が起動したDynamoDB Localだけを停止
-13. [x] ログと終了理由を出力
+2. [x] Maven WrapperとMaven配布物SHA-256を固定
+3. [x] POMからDynamoDB Local 3.3.1とdependency pluginの固定バージョンを読む
+4. [x] 環境proxyを認証情報を残さない一時Maven settingsへ変換
+5. [x] Maven Centralから本体、推移依存、native libraryを解決
+6. [x] POM SHA-256と解決済みmarkerを照合してcacheを再利用
+7. [x] 実行時にDynamoDB Localのversion出力を検証
+8. [x] 未使用portを確認
+9. [x] in-memoryモードで起動
+10. [x] APIレベルのready check
+11. [x] 子コマンドをサニタイズしたAWS環境変数で実行
+12. [x] 終了コードを保持
+13. [x] 自分が起動したDynamoDB Localだけを停止
+14. [x] ログと終了理由を出力
 
-想定コマンド:
+実行コマンドは変更しない。
 
 ```bash
 cd backend
@@ -227,9 +247,9 @@ uv run python -m scripts.run_with_dynamodb_local \
   -- uv run pytest -m integration
 ```
 
-ダウンロード、checksum、Java、起動、ready checkの失敗は`ENVIRONMENT_FAILURE`として扱い、Valid Redへ数えない。
+Maven Wrapper bootstrap、Maven Central解決、checksum、Java、起動、ready checkの失敗は`ENVIRONMENT_FAILURE`として扱い、Valid Redへ数えない。
 
-完了条件: **達成済み。** 空のWork環境から単一コマンドでDynamoDB Localを起動・停止できる。
+完了条件: WorkとClaude Codeのクリーン環境から同じ単一コマンドでDynamoDB Localを起動・停止し、Environment Gateをそれぞれ通過できる。
 
 ### Step 2: pytest統合テスト基盤を実装する（実装・検証済み）
 
@@ -266,59 +286,64 @@ backend/pyproject.toml
 
 完了条件: **達成済み。** 環境スモークが成功し、機能テストを追加していない状態を維持している。
 
-### Step 3: Work Environment Gateを検証する（技術検証・人間承認済み）
+### Step 3: Work / Claude Code Environment Gateを再検証する（Maven方式未完了）
 
-最低限、次を記録する。
+最低限、各環境で次を記録する。
 
 | 検証 | 期待結果 |
 |---|---|
 | Java version | 17以上 |
-| 配布物checksum | ロックファイルと一致 |
+| Maven Wrapper | 3.3.4、固定SHA-256検証 |
+| Maven version | 3.9.16 |
+| Maven repository | `https://repo.maven.apache.org/maven2` |
+| DynamoDB Local coordinate | `software.amazon.dynamodb:DynamoDBLocal:3.3.1` |
 | DynamoDB Local version | 3.3.1 |
 | API ready check | Pass |
 | テーブル作成・DescribeTable | Pass |
 | 環境スモーク | Pass |
 | 既存Backend unit | 53件以上、既存分がPass |
-| 連続2回実行 | 前回データ・プロセス・portを引き継がずPass |
+| 連続2回実行 | Maven cache再利用時も、前回データ・プロセス・portを引き継がずPass |
 | endpoint未設定 | SDK呼び出し前にFail |
 | 非loopback endpoint | SDK呼び出し前にFail |
-| checksum不一致 | JAR実行前にFail |
+| Maven Wrapper / Central解決失敗 | `ENVIRONMENT_FAILURE`、exit 70 |
+| POM不正・依存関係不完全 | Java起動前に`ENVIRONMENT_FAILURE`、exit 70 |
 | Javaプロセス起動失敗 | `ENVIRONMENT_FAILURE`、exit 70 |
-| ログ作成・checksum読み取り等のOS失敗 | `ENVIRONMENT_FAILURE`、exit 70 |
+| ログ作成等のOS失敗 | `ENVIRONMENT_FAILURE`、exit 70 |
 | 子コマンド失敗 | 終了コードを保持し、DynamoDB Localを停止 |
 
 Environment Gate:
 
-- [x] 取得元、バージョン、SHA-256が固定されている
-- [x] 単一コマンドで起動、ready check、子コマンド、停止が行われる
+- [x] Maven Wrapper、Maven、DynamoDB Local、pluginのバージョンが固定されている
+- [x] Maven配布物SHA-256とMaven repository checksum policyが設定されている
+- [x] Work proxyとproxyなし環境を同じランナーで扱う
+- [x] 単一コマンドで依存解決、起動、ready check、子コマンド、停止を行う
 - [x] 実AWSへ接続しないfail-closed検査がある
-- [x] 設定キャッシュがテスト間で分離される
-- [x] 環境スモークが連続して成功する
-- [x] 既存unit testが回帰していない
-- [x] 環境・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として判別できる
-- [x] 人間がEnvironment Gateを承認した
+- [x] Workで環境スモークと既存unit testが連続2回成功
+- [ ] Claude Codeで環境スモークと既存unit testが連続2回成功
+- [x] WorkでMaven・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として確認
+- [ ] Maven方式の検証済みSHAを記録
+- [ ] 人間が更新後のEnvironment Gateを承認
 
-技術判定は`ENVIRONMENT_READY`であり、人間によるEnvironment Gate承認も完了している。機能TDDの開始は別の判断であるため、人間が明示的に「TDD開始」を指示するまで開始しない。
+旧CloudFront方式は`ENVIRONMENT_READY`かつ人間承認済みだったが、PR #19は環境コードと依存取得経路を変更するため、その証跡を現在のMaven方式へ流用しない。WorkとClaude Codeの両方で再検証し、人間が再承認するまで機能TDDを開始しない。
 
 ### Step 4: TDD計画へ環境証跡を反映する
 
-- [x] 環境整備専用コミットSHAを記録する
-- [x] 実行コマンドと結果を記録する
+- [ ] Maven移行後の環境整備コミットSHAを記録する
+- [ ] WorkとClaude Codeの実行コマンドと結果を記録する
 - [x] PR #14で記録したGAP-002の解消状況を更新する
 - [x] 環境整備とTDDテストのコミットを分離する（機能TDDテストは未作成）
 - [x] 環境整備PRをマージする
 - [x] 最新`main`でBaselineを再実行する
-- [x] Environment Gate検証済みSHAを固定する
+- [ ] Maven方式のEnvironment Gate検証済みSHAを固定する
 
-Environment Gate検証済みSHAは、環境コードまたはテスト基盤を変更した場合に再検証して更新する。
-文書だけの変更では更新しない。TDDを開始するAgentは、その時点の最新`main`からブランチを作成し、
+PR #19は環境コードと依存取得経路を変更するため、旧検証済みSHAを現在のGate根拠にしない。Maven方式の検証完了後に新しい検証済みSHAを固定する。以後も環境コードまたはテスト基盤を変更した場合は再検証し、文書だけの変更では更新しない。TDDを開始するAgentは、その時点の最新`main`からブランチを作成し、
 実際の分岐元をTDD作業開始SHAとしてTDD実行記録へ記録する。
 
 ここまで完了するまで、承認済みの購入物登録TDDテストコードを作成しない。
 
 ## 7. TDD開始後
 
-Environment Gateは承認済みである。人間の明示的な「TDD開始」を起点として、[4エージェント＋オーケストレーター開発運用](../FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)を開始する。
+Maven方式のEnvironment Gate再検証と人間再承認が完了した後、人間の明示的な「TDD開始」を起点として、[4エージェント＋オーケストレーター開発運用](../FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)を開始する。
 
 1. 仕様エージェントの承認済み仕様、論理テストケース、中心的契約、TDD計画を入力として固定する
 2. 新しいテストエージェントが承認済み最小TDDセットをテストコードへ変換する
@@ -428,33 +453,34 @@ test: complete purchase creation post-implementation verification
 
 1. PR #15: 環境構築計画
 2. PR #16: Work用DynamoDB Localランタイム、fail-closed検査、pytest integration fixture、marker、環境スモーク
-3. PR #17: 最新`main`でのEnvironment Gate証跡と文言整合
+3. PR #17: 最新`main`での旧CloudFront方式Environment Gate証跡と文言整合
+4. PR #19: DynamoDB Localの取得をMaven Centralへ統一し、Work・Claude Codeの共通経路を構築
 
-Environment Gateは人間承認済みである。環境コードまたはテスト基盤を変更した場合だけ再検証する。
+旧CloudFront方式のEnvironment Gateは人間承認済みである。PR #19で環境コードを変更するため、Maven方式は再検証・再承認する。
 
 ### 次の準備
 
-4. 4エージェント＋オーケストレーターの各工程を実行するSkills
+5. 4エージェント＋オーケストレーターの各工程を実行するSkills
 
 ### TDD開始後
 
-5. 承認済み購入物登録TDDテストとValid Red
-6. 購入物登録の垂直スライス実装とTDD Green
-7. 実装後テスト、代表E2E、独立した最終レビュー
-8. GitHub Actions integration / E2E
+6. 承認済み購入物登録TDDテストとValid Red
+7. 購入物登録の垂直スライス実装とTDD Green
+8. 実装後テスト、代表E2E、独立した最終レビュー
+9. GitHub Actions integration / E2E
 
 ### 後続
 
-9. AWS stagingのTerraformとOIDC
-10. Backend/Frontendのstaging deploy
-11. staging smoke・重要E2E
+10. AWS stagingのTerraformとOIDC
+11. Backend/Frontendのstaging deploy
+12. staging smoke・重要E2E
 
 ## 13. TDD開始前の最終チェックリスト
 
 - [x] PR #14がマージ済み
 - [x] PR #15がマージ済み
 - [x] Work用環境整備PR（PR #16）がマージ済み
-- [x] DynamoDB Local 3.3.1とSHA-256がロックファイルに固定済み
+- [x] Maven Wrapper 3.3.4、Maven 3.9.16、DynamoDB Local 3.3.1が固定済み
 - [x] fail-closed検査が自動テスト済み
 - [x] APIレベルready checkが成功
 - [x] pytest integration fixtureが実AWSへ接続しない
@@ -462,8 +488,8 @@ Environment Gateは人間承認済みである。環境コードまたはテス�
 - [x] 環境スモークが連続2回成功
 - [x] 既存unit testが成功
 - [x] TDD計画のGAP-002を解消済み
-- [x] Environment Gate検証済みSHAを記録
-- [x] 人間がEnvironment Gateを承認
+- [ ] Maven方式のEnvironment Gate検証済みSHAを記録
+- [ ] 人間がMaven方式のEnvironment Gateを再承認
 - [ ] 人間が「TDD開始」を指示
 
-未完了の「TDD開始」指示を受けるまで、購入物登録のTDDテスト作成へ進まない。
+Maven方式のEnvironment Gate再検証・再承認と、その後の明示的な「TDD開始」指示が完了するまで、購入物登録のTDDテスト作成へ進まない。
