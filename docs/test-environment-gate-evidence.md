@@ -8,8 +8,57 @@ PR #19でDynamoDB Localの取得経路をCloudFront配布アーカイブからMa
 Maven Wrapper、POM、推移依存関係、proxy設定をテスト環境の一部へ追加した。これは環境コードの
 変更であるため、以下の旧方式の証跡と人間承認を、現在のMaven方式のGate根拠へ流用しない。
 
-Maven方式について、WorkとClaude Codeの両方で同一コマンドによるEnvironment Gateを連続2回
+Maven方式はWorkで連続2回のEnvironment Gateを通過した。Claude Codeでも同一コマンドを連続2回
 実行し、新しい検証済みSHAを記録した後に人間の再承認を受ける。完了するまで機能TDDを開始しない。
+
+## Maven方式のWork検証
+
+| 項目 | 値 |
+|---|---|
+| 実行日 | 2026-09-23 |
+| 環境コード基準 | `ec802a8d7e7bfcc2fe1dfd9d1872f4294d2d0e19` |
+| 実行環境 | ChatGPT Work / Ubuntu 24.04.3 LTS / x86_64 |
+| Python | 3.14.7 |
+| Java | OpenJDK 17.0.20 |
+| Maven Wrapper | 3.3.4 / `only-script` |
+| Maven | 3.9.16 |
+| Maven配布物SHA-256 | `5af3b743dd8b876b5c45da33b676251e5f1687712644abb4ee519ca56e1d89ce` |
+| DynamoDB Local | `software.amazon.dynamodb:DynamoDBLocal:3.3.1` |
+| Runtime POM SHA-256 | `75b35c4a96123215077d1e7bd97f567d96cbb5fbbfd0cb04e7bc3047a9faa2ec` |
+
+`backend/`で次を実行した。
+
+```bash
+uv sync --frozen
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest -m "not integration"
+uv run python -m scripts.run_with_dynamodb_local \
+  -- uv run pytest -m integration
+```
+
+| 検証 | 1回目 | 2回目 |
+|---|---:|---:|
+| Backend unit | 53 passed | 53 passed |
+| Maven依存解決 | Pass（初回取得） | Pass（cache再利用） |
+| 環境スモーク / fail-closed / Maven設定 | 15 passed | 15 passed |
+| DynamoDB Local version | 3.3.1 | 3.3.1 |
+| API ready check | Pass | Pass |
+| DynamoDB Local停止 | Pass | Pass |
+| セッションID | `bfc8bb0439244670805c3d81508bd04d` | `2d3a765132a3434488944a46bfeb7bd3` |
+
+追加の負系確認:
+
+| 検証 | 結果 |
+|---|---|
+| ランナーなしintegration | `ENVIRONMENT_FAILURE`、exit 70 |
+| Maven Wrapper / Central失敗の自動テスト | `ENVIRONMENT_FAILURE`、exit 70 |
+| 子コマンド失敗 | exit 23を保持 |
+| 子コマンド失敗後のPID停止・8001番port解放 | Pass |
+| POMの固定version読取 | DynamoDB Local 3.3.1 / dependency plugin 3.8.1 |
+
+Workでは環境変数のHTTP proxyを一時Maven settingsへ変換し、Maven実行後に削除する経路を通過した。
+proxy認証情報はリポジトリ、POM、marker、実行ログへ保存していない。
 
 ## 旧CloudFront方式の判定
 
