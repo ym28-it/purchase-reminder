@@ -16,9 +16,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。DynamoDBの汎用モデル基盤には単体テストがあるが、purchase CRUD、services、API、frontendのテストは未整備。Cognito認証、購入タイミングのドメインロジック、通知、Terraform、デプロイ、E2Eは未実装。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
 
-### 現在の優先作業: 固定uv・Pythonによるテスト環境再検証
+### 現在の優先作業: mise管理ツールチェーンによるテスト環境再検証
 
-PR #16で構築したCloudFront直接取得方式のEnvironment Gateは検証・人間承認済みだったが、PR #19でDynamoDB Localの依存取得をMaven Centralへ変更した。その後、Claude Codeで古いuvがPython 3.14.0rc2を選択してGitHub経由の取得に失敗したため、uv 0.12.18とPython 3.14.7を固定する。環境コードを変更するため、旧証跡を現在のGate根拠へ流用しない。
+PR #16で構築したCloudFront直接取得方式のEnvironment Gateは検証・人間承認済みだったが、PR #19でDynamoDB Localの依存取得をMaven Centralへ変更した。その後、Claude Codeで古いuvがPython 3.14.0rc2を選択してGitHub経由の取得に失敗した。さらにクリーンなWorkがWindowsネイティブで起動し、system PythonとJavaがないことが判明したため、対応ホストをLinux（WSL2を含む）/ macOSに限定し、Python 3.14.7、uv 0.12.18、Temurin Java 17をmiseで統一管理する。環境コードを変更するため、旧証跡を現在のGate根拠へ流用しない。
 
 [テスト実行環境構築計画](docs/todo/test-environment-rollout.md)をsource of truthとして、同じMaven Wrapper、`tools/java-runtime/pom.xml`、PythonランナーをWork、Claude Code、Pull Request Actionsで使用する。WorkとClaude Codeの両方でEnvironment Gateを再検証し、人間が更新後のGateを承認するまで、購入物登録の機能テストとプロダクトコードを変更しない。
 
@@ -88,11 +88,10 @@ PR #16で構築したCloudFront直接取得方式のEnvironment Gateは検証・
 
 ### 環境セットアップ
 
-- `bash scripts/setup_host_prerequisites.sh --check` — Linux（WSL2を含む）またはmacOS上で、system Python 3 + venvとJava 17以上を確認
-- `bash scripts/setup_host_prerequisites.sh --install` — 不足する前提をapt-get / dnf / Homebrewで明示的に導入。Mavenとuvはグローバル導入しない
-- `bash scripts/bootstrap_uv.sh` — GitHubのstandalone installerを使わず、PyPIから固定uvを`.cache/`へ導入し、Python 3.14.7を確認
-- `export PATH="$PWD/.cache/bin:$PATH"` — ブートストラップしたuvを現在のshellで優先
-- `mise install` — `mise.toml` で固定されたPython 3.14.7 / uv 0.12.18 / bun / terraformを導入（ローカル開発用）
+- `bash scripts/setup_host_prerequisites.sh --install` — Linux（WSL2を含む）またはmacOS上で、`mise.toml`が選択するPython 3.14.7 / uv 0.12.18 / Temurin Java 17をmiseで導入
+- `bash scripts/setup_host_prerequisites.sh --check` — system toolchainではなくmiseが選択する各バージョンを検証。mise自体がない場合やWindowsネイティブでは`ENVIRONMENT_FAILURE`
+- `mise exec -- <command>` — Environment Gateのコマンドへmise管理の`PATH`と`JAVA_HOME`を適用。非対話環境ではshell activationに依存しない
+- `mise install` — `mise.toml` にある開発ツール全体を導入（Environment Gateだけなら上記`--install`を使う）
 - `pre-commit install` — ローカルのpre-commitフック（backendはruff check/format、frontendはbiome check）を有効化
 
 ### Backend（`backend/` から、またはdocker-compose経由）

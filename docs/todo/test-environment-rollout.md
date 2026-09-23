@@ -12,10 +12,10 @@
 |---|---|
 | 更新日 | 2026-09-23 |
 | 旧CloudFront方式のEnvironment Gate検証済みSHA | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
-| 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行） |
+| 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行）、PR #23（miseツールチェーン統一） |
 | 対象 | ChatGPT Work、Claude Code、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | POSIXホスト前提・uv 0.12.18・Python 3.14.7固定対応 / Work・Claude Code再検証・人間再承認待ち |
+| 状態 | mise管理のPython 3.14.7・uv 0.12.18・Temurin Java 17対応 / Work・Claude Code再検証・人間再承認待ち |
 
 ## 2. 基本方針
 
@@ -52,10 +52,10 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 | 接続切替 | `DYNAMODB_ENDPOINT_URL`の有無 |
 | テーブル作成 | `backend/scripts/bootstrap_local_table.py` |
 | ローカル開発 | Docker Compose上のDynamoDB Local |
-| Work | Dockerなし。ホスト前提を検査・構築後、固定uvをPyPIからbootstrapし、HTTP proxyをMaven一時設定へ変換 |
-| Claude Code | Docker利用可否に依存せず、ホスト前提を検査・構築後、PyPIとMaven Centralへ接続 |
+| Work | Dockerなし。miseから固定Python・uv・Javaを導入し、HTTP proxyをMaven一時設定へ変換 |
+| Claude Code | Docker利用可否に依存せず、miseとMaven Centralを共通経路として使用 |
 
-正式に対応するホストは、POSIXシェルを持つLinux（WSL2を含む）とmacOSとする。WindowsネイティブのPowerShell / `cmd.exe`はEnvironment Gateの実行環境に含めない。WSL2ではWindows側のPythonやJavaを混在させず、WSLディストリビューション内へ前提ランタイムを導入する。シェルスクリプトと`mvnw`は`.gitattributes`でLFへ固定する。
+正式に対応するホストは、POSIXシェルを持つLinux（WSL2を含む）とmacOSとする。WindowsネイティブのPowerShell / `cmd.exe`はEnvironment Gateの実行環境に含めない。WSL2ではWindows側のPythonやJavaを混在させず、WSLディストリビューション内のmiseからツールを導入する。シェルスクリプトと`mvnw`は`.gitattributes`でLFへ固定する。
 
 ### 3.2 Baseline
 
@@ -79,17 +79,17 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 ### 4.1 Pythonとuv
 
 - Pythonは`3.14.7`、uvは`0.12.18`へ固定する。
-- 固定Pythonを取得するためのbootstrap用system Python 3と`venv` moduleはホスト前提とし、`scripts/setup_host_prerequisites.sh`で検査・明示的に導入する。
-- 固定値はルートと`backend/`の`.python-version`、`mise.toml`、CI、コンテナで一致させる。
-- AIリモート環境では、古いuvの`self update`やGitHub上のstandalone installerを使用しない。
-- `scripts/bootstrap_uv.sh`がsystem `python3`とPyPIを使い、固定uvをリポジトリ内の`.cache/uv-bootstrap/`へ導入する。
-- bootstrap後は`.cache/bin`を`PATH`の先頭へ追加し、`backend/`で`uv sync --python 3.14.7 --frozen`を実行する。これにより既存のPython 3.14 prerelease環境を再利用しない。
-- uv bootstrap、Python 3.14.7の発見・取得、バージョン検証の失敗は`ENVIRONMENT_FAILURE`として扱い、機能TDDへ進まない。
+- ホスト側で手動導入する前提はmiseだけとし、system PythonやOS別package managerには依存しない。
+- 固定値はルートと`backend/`の`.python-version`、ルートの`mise.toml`、CI、コンテナで一致させる。
+- `scripts/setup_host_prerequisites.sh --install`はmiseを使い、Environment Gateに必要なPython、uv、Javaだけを導入する。
+- 非対話環境ではshell activationに依存せず、`mise exec --`経由で固定ツールと`JAVA_HOME`を子プロセスへ渡す。
+- `backend/`で`mise exec -- uv sync --python 3.14.7 --frozen`を実行し、既存のPython 3.14 prerelease環境を再利用しない。
+- miseの欠落、ツール取得、Python 3.14.7またはuv 0.12.18の選択・検証失敗は`ENVIRONMENT_FAILURE`として扱い、機能TDDへ進まない。
 
 ### 4.2 MavenとDynamoDB Local
 
-- Java 17以上を実行ランタイムとする。Java自体のインストールやバージョン管理はMavenの責務にしない。
-- Java 17以上はホスト前提構築の対象とし、Linuxではapt-getまたはdnf、macOSではHomebrewを使って明示的に導入する。Mavenはグローバル導入せず、固定Maven Wrapperだけを使う。
+- Java 17以上を実行ランタイムとし、Temurin Java 17を`mise.toml`で選択する。Java自体のインストールやバージョン管理はMavenの責務にしない。
+- Javaはmiseで導入し、Mavenはグローバル導入せず固定Maven Wrapperだけを使う。`mise exec --`によりMaven WrapperとDynamoDB Localへ選択済み`JAVA_HOME`を渡す。
 - Maven Wrapper `3.3.4`とApache Maven `3.9.16`をリポジトリ直下へ固定する。
 - Maven配布物はMaven Centralの固定URLから取得し、`.mvn/wrapper/maven-wrapper.properties`のSHA-256で検証する。
 - DynamoDB LocalはMaven Centralの`software.amazon.dynamodb:DynamoDBLocal:3.3.1`として固定する。
@@ -103,7 +103,6 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 
 ```text
 scripts/setup_host_prerequisites.sh
-scripts/bootstrap_uv.sh
 .gitattributes
 .python-version
 backend/.python-version
@@ -234,7 +233,6 @@ portが開いていることだけをready判定にしない。
 
 ```text
 scripts/setup_host_prerequisites.sh
-scripts/bootstrap_uv.sh
 .gitattributes
 .python-version
 backend/.python-version
@@ -249,10 +247,10 @@ backend/scripts/run_with_dynamodb_local.py
 
 共通の環境構築・実行経路は次を行う。
 
-0. [x] 対応OS、bootstrap用system Python 3 + venv、Java 17以上を検査し、明示指定時だけ不足分を導入
-1. [x] uv 0.12.18をPyPI経由でbootstrap
-2. [x] Python 3.14.7を明示的に選択
-3. [x] Java 17以上を確認
+0. [x] 対応OSとmiseの存在を検査し、Windowsネイティブではfail closedする
+1. [x] miseからuv 0.12.18を選択する
+2. [x] miseからPython 3.14.7を選択する
+3. [x] miseからTemurin Java 17を選択し、Java 17以上を確認する
 4. [x] Maven WrapperとMaven配布物SHA-256を固定
 5. [x] POMからDynamoDB Local 3.3.1とdependency pluginの固定バージョンを読む
 6. [x] 環境proxyを認証情報を残さない一時Maven settingsへ変換
@@ -267,18 +265,15 @@ backend/scripts/run_with_dynamodb_local.py
 15. [x] 自分が起動したDynamoDB Localだけを停止
 16. [x] ログと終了理由を出力
 
-ホスト前提の構築とGate本体を次の順序で実行する。`--install`は不足がある場合だけ明示的に実行し、通常の再検証では`--check`だけを使う。
+ホスト前提の構築とGate本体を次の順序で実行する。miseは利用者が事前に導入する。`--install`はEnvironment Gateに必要なmise管理ツールだけを導入し、`--check`はネットワーク取得を行わず選択済みバージョンを検証する。
 
 ```bash
-bash scripts/setup_host_prerequisites.sh --check
-# 不足時だけ、利用者の明示的な操作として次を実行する
 bash scripts/setup_host_prerequisites.sh --install
-bash scripts/bootstrap_uv.sh
-export PATH="$PWD/.cache/bin:$PATH"
+bash scripts/setup_host_prerequisites.sh --check
 cd backend
-uv sync --python 3.14.7 --frozen
-uv run python -m scripts.run_with_dynamodb_local \
-  -- uv run pytest -m integration
+mise exec -- uv sync --python 3.14.7 --frozen
+mise exec -- uv run python -m scripts.run_with_dynamodb_local \
+  -- mise exec -- uv run pytest -m integration
 ```
 
 Maven Wrapper bootstrap、Maven Central解決、checksum、Java、起動、ready checkの失敗は`ENVIRONMENT_FAILURE`として扱い、Valid Redへ数えない。
@@ -327,7 +322,8 @@ backend/pyproject.toml
 | 検証 | 期待結果 |
 |---|---|
 | host OS | Linux（WSL2を含む）またはmacOS。WindowsネイティブはFail |
-| host prerequisites | system Python 3 + venv、Java 17以上 |
+| host prerequisites | mise、Linux（WSL2を含む）またはmacOS |
+| mise tool selection | Python 3.14.7、uv 0.12.18、Temurin Java 17 |
 | uv version | 0.12.18 |
 | Python version | 3.14.7（prerelease不可） |
 | Java version | 17以上 |
@@ -358,9 +354,9 @@ Environment Gate:
 - [x] Work proxyとproxyなし環境を同じランナーで扱う
 - [x] 単一コマンドで依存解決、起動、ready check、子コマンド、停止を行う
 - [x] 実AWSへ接続しないfail-closed検査がある
-- [ ] 固定uv・PythonでWorkの環境スモークと既存unit testが連続2回成功
+- [ ] mise管理ツールチェーンでWorkの環境スモークと既存unit testが連続2回成功
 - [ ] Claude Codeで環境スモークと既存unit testが連続2回成功
-- [ ] 固定uv・PythonでWorkのMaven・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として再確認
+- [ ] mise管理ツールチェーンでWorkのMaven・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として再確認
 - [ ] Maven方式の検証済みSHAを記録
 - [ ] 人間が更新後のEnvironment Gateを承認
 
@@ -525,10 +521,10 @@ test: complete purchase creation post-implementation verification
 - [x] APIレベルready checkが成功
 - [x] pytest integration fixtureが実AWSへ接続しない
 - [x] 設定キャッシュを開始前後にクリア
-- [ ] 固定uv・Pythonで環境スモークが連続2回成功
-- [ ] 固定uv・Pythonで既存unit testが成功
+- [ ] mise管理ツールチェーンで環境スモークが連続2回成功
+- [ ] mise管理ツールチェーンで既存unit testが成功
 - [x] TDD計画のGAP-002を解消済み
-- [ ] 固定uv・Pythonを含むMaven方式のEnvironment Gate検証済みSHAを記録
+- [ ] mise管理ツールチェーンを含むMaven方式のEnvironment Gate検証済みSHAを記録
 - [ ] 人間がMaven方式のEnvironment Gateを再承認
 - [ ] 人間が「TDD開始」を指示
 

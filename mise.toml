@@ -1,6 +1,7 @@
 [tools]
 python = "3.14.7"
 uv = "0.12.18"
+java = "temurin-17"
 bun = "latest"
 terraform = "1.15"
 pre-commit = "latest"
