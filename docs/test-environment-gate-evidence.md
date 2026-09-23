@@ -8,12 +8,13 @@ PR #16をマージした最新`main`だけを根拠として、クリーンなWo
 Environment Gateを2回連続で通過した。購入物登録の機能テスト、プロダクトコード、E2E、
 integration・E2E用のGitHub Actions workflow、AWS stagingには着手していない。既存の
 `.github/workflows/test.yml`では、PR #16でunit testをintegration testから分離済みである。
-機能TDDの開始には人間による明示的な承認が必要である。
+Environment Gateは人間に承認済みである。機能TDDは別の開始判断であり、人間による明示的な「TDD開始」指示までは開始しない。
 
 | 項目 | 値 |
 |---|---|
 | 実行日 | 2026-09-23 |
 | Environment Gate検証済みSHA | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
+| Environment Gate人間承認 | 承認済み（2026-09-23） |
 | PR #16マージコミット | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
 | ブランチ | `main` |
 | OS | Ubuntu 24.04.3 LTS |
@@ -103,10 +104,9 @@ PRブランチ上の証跡からPR #16マージ後の最新`main`上の証跡へ
 
 `2983f363565f09cf364dfd0d6ae20c7846c3cc01`は、Environment Gateを実際に通過した
 **検証済み環境コードSHA**として固定する。これは移動する「最新main」のSHAではない。
-PR #17は文書だけを変更するため、そのマージによってこの環境検証結果は無効にならず、
+PR #17は文書だけを変更したため、そのマージによってこの環境検証結果は無効にならず、
 Environment Gateを再実行する必要もない。
 
 購入物登録TDDを開始するAgentは、PR #17マージ後の最新`main`からブランチを作成し、
 実際の分岐元を**TDD作業開始SHA**としてTDD実行記録へ別途記録する。
-`docs/specs/purchase-create-tdd-plan.md`のGAP-002は解消済みである。残る開始条件は、
-Environment Gateの人間承認と、人間による明示的な「TDD開始」指示である。
+`docs/specs/purchase-create-tdd-plan.md`のGAP-002は解消済みであり、Environment Gateも人間承認済みである。残る開始条件は、人間による明示的な「TDD開始」指示である。

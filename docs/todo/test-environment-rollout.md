@@ -15,7 +15,7 @@
 | 環境整備PR | PR #16（マージ済み） |
 | 対象 | ChatGPT Work、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | Step 1〜3実装・最新`main`再検証済み / Environment Gate人間承認待ち |
+| 状態 | Step 1〜3実装・最新`main`再検証・Environment Gate人間承認済み / 開発サイクル実行Skills整備前 |
 
 ## 2. 基本方針
 
@@ -266,7 +266,7 @@ backend/pyproject.toml
 
 完了条件: **達成済み。** 環境スモークが成功し、機能テストを追加していない状態を維持している。
 
-### Step 3: Work Environment Gateを検証する（技術検証済み / 人間承認待ち）
+### Step 3: Work Environment Gateを検証する（技術検証・人間承認済み）
 
 最低限、次を記録する。
 
@@ -296,10 +296,9 @@ Environment Gate:
 - [x] 環境スモークが連続して成功する
 - [x] 既存unit testが回帰していない
 - [x] 環境・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として判別できる
-- [ ] 人間がTDDテスト作成開始を承認した
+- [x] 人間がEnvironment Gateを承認した
 
-技術判定は`ENVIRONMENT_READY`である。完了条件のうち人間承認だけが未完了であり、
-承認されるまで機能TDDを開始しない。
+技術判定は`ENVIRONMENT_READY`であり、人間によるEnvironment Gate承認も完了している。機能TDDの開始は別の判断であるため、人間が明示的に「TDD開始」を指示するまで開始しない。
 
 ### Step 4: TDD計画へ環境証跡を反映する
 
@@ -319,17 +318,21 @@ Environment Gate検証済みSHAは、環境コードまたはテスト基盤を�
 
 ## 7. TDD開始後
 
-Environment Gate通過後、人間の「TDD開始」を起点として3エージェント運用を開始する。
+Environment Gateは承認済みである。人間の明示的な「TDD開始」を起点として、[4エージェント＋オーケストレーター開発運用](../FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)を開始する。
 
-1. 新しいテストエージェントが承認済み7項目をテストコードへ変換する
-2. 環境スモークを先に実行する
-3. 環境スモークがGreenであることを確認する
-4. TDD対象テストを実行する
-5. Redと承認済みRed例外を記録する
-6. オーケストレーターがAutomated Red Gateを判定する
-7. 実装エージェントが凍結済みテストを変更せず実装する
+1. 仕様エージェントの承認済み仕様、論理テストケース、中心的契約、TDD計画を入力として固定する
+2. 新しいテストエージェントが承認済み最小TDDセットをテストコードへ変換する
+3. 環境スモークを実行し、Greenを確認する
+4. TDD対象テストのRedと承認済みRed例外を記録する
+5. オーケストレーターがAutomated Red Gateを判定する
+6. 新しい実装エージェントが凍結済みテストを変更せず実装する
+7. オーケストレーターがAutomated Green Gateを判定する
+8. 実装時の会話を引き継がない新しいテストエージェントが実装後テストを作成・実行する
+9. オーケストレーターがCompletion Gateを判定する
+10. 新しいレビューエージェントが仕様、テスト、実装、証跡を統合的に確認する
+11. 人間がSlice Completeを最終判断する
 
-環境スモークが失敗した場合は`ENVIRONMENT_FAILURE`で停止する。機能テストの失敗と混在させない。
+環境スモークが失敗した場合は`ENVIRONMENT_FAILURE`で停止する。機能テストの失敗と混在させない。仕様上の問題は仕様エージェント、テスト上の問題はテストエージェント、実装上の問題は実装エージェントへ戻し、影響するGate以降を再実行する。
 
 ## 8. Pull Request Actionsへの展開
 
@@ -401,7 +404,7 @@ DynamoDB LocalとAWS DynamoDBは完全には一致しない。次はLocalのGree
 - テスト基盤を担当するエージェントが実装する
 - プロダクトコードと機能TDDテストを変更しない
 - 環境ランタイム、fixture、環境スモーク、テスト設定だけを変更する
-- 契約オーナーが安全性と再現性をレビューする
+- 独立したレビュー担当が安全性と再現性をレビューする
 - 人間がEnvironment Gateを最終承認する
 
 ### TDD
@@ -421,25 +424,30 @@ test: complete purchase creation post-implementation verification
 
 ## 12. PR分割
 
-### TDD開始前
+### 完了済み
 
 1. PR #15: 環境構築計画
-2. Work用DynamoDB Localランタイム、fail-closed検査、pytest integration fixture、marker、環境スモークを1つの環境整備PRとして実装
+2. PR #16: Work用DynamoDB Localランタイム、fail-closed検査、pytest integration fixture、marker、環境スモーク
+3. PR #17: 最新`main`でのEnvironment Gate証跡と文言整合
 
-ランタイムラッパーとfixtureは一体でEnvironment Gateを成立させるため、別PRには分割しない。
+Environment Gateは人間承認済みである。環境コードまたはテスト基盤を変更した場合だけ再検証する。
+
+### 次の準備
+
+4. 4エージェント＋オーケストレーターの各工程を実行するSkills
 
 ### TDD開始後
 
-3. 承認済み購入物登録TDDテストとValid Red
-4. 購入物登録の垂直スライス実装とTDD Green
-5. 実装後テストと代表E2E
-6. GitHub Actions integration / E2E
+5. 承認済み購入物登録TDDテストとValid Red
+6. 購入物登録の垂直スライス実装とTDD Green
+7. 実装後テスト、代表E2E、独立した最終レビュー
+8. GitHub Actions integration / E2E
 
 ### 後続
 
-7. AWS stagingのTerraformとOIDC
-8. Backend/Frontendのstaging deploy
-9. staging smoke・重要E2E
+9. AWS stagingのTerraformとOIDC
+10. Backend/Frontendのstaging deploy
+11. staging smoke・重要E2E
 
 ## 13. TDD開始前の最終チェックリスト
 
@@ -455,7 +463,7 @@ test: complete purchase creation post-implementation verification
 - [x] 既存unit testが成功
 - [x] TDD計画のGAP-002を解消済み
 - [x] Environment Gate検証済みSHAを記録
-- [ ] 人間がEnvironment Gateを承認
+- [x] 人間がEnvironment Gateを承認
 - [ ] 人間が「TDD開始」を指示
 
-すべて満たすまで、購入物登録のTDDテスト作成へ進まない。
+未完了の「TDD開始」指示を受けるまで、購入物登録のTDDテスト作成へ進まない。
