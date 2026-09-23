@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+
 from app.core import dynamodb as dynamodb_module
 from app.core.config import get_settings
 from app.core.dynamodb import get_dynamodb_resource, get_table
