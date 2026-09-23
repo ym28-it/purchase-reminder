@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.14-slim AS base
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+FROM python:3.14.7-slim AS base
+COPY --from=ghcr.io/astral-sh/uv:0.12.18 /uv /uvx /bin/
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never
@@ -30,7 +30,7 @@ RUN uv sync --frozen
 # prod: Lambda Web Adapter を拡張機能として追加した本番ランタイム
 #       ※ aws-lambda-adapter のバージョンは最新を確認の上、適宜更新してください
 # ---------------------------------------------------------------------------
-FROM python:3.14-slim AS prod
+FROM python:3.14.7-slim AS prod
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 
 ENV PATH="/app/.venv/bin:$PATH" \

@@ -1,6 +1,6 @@
 [tools]
 python = "3.14.7"
-uv = "latest"
+uv = "0.12.18"
 bun = "latest"
 terraform = "1.15"
 pre-commit = "latest"

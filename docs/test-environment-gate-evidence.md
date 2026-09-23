@@ -8,10 +8,13 @@ PR #19でDynamoDB Localの取得経路をCloudFront配布アーカイブからMa
 Maven Wrapper、POM、推移依存関係、proxy設定をテスト環境の一部へ追加した。これは環境コードの
 変更であるため、以下の旧方式の証跡と人間承認を、現在のMaven方式のGate根拠へ流用しない。
 
-Maven方式はWorkで連続2回のEnvironment Gateを通過した。Claude Codeでも同一コマンドを連続2回
-実行し、新しい検証済みSHAを記録した後に人間の再承認を受ける。完了するまで機能TDDを開始しない。
+Maven方式はWorkで連続2回のEnvironment Gateを通過したが、その後Claude Codeで古いuvが
+Python 3.14.0rc2を選択し、GitHub経由の取得がネットワーク制約で失敗した。uv 0.12.18をPyPI経由で
+bootstrapし、Python 3.14.7を明示的に選択するよう環境コードを変更するため、従来のWork検証も
+現在のGate根拠へ流用しない。WorkとClaude Codeの両方で同一コマンドを連続2回実行し、新しい
+検証済みSHAを記録した後に人間の再承認を受ける。完了するまで機能TDDを開始しない。
 
-## Maven方式のWork検証
+## Maven方式のWork検証（uv・Python固定前の参考記録）
 
 | 項目 | 値 |
 |---|---|
