@@ -14,9 +14,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v4
-        with:
-          install: false
       - run: bash scripts/setup_host_prerequisites.sh --install
       - run: bash scripts/setup_host_prerequisites.sh --check
 

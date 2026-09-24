@@ -3,13 +3,14 @@ set -euo pipefail
 
 environment_failure_exit=70
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+mise_bin="$repo_root/bin/mise"
 mode="${1:---check}"
 
 usage() {
   cat <<'EOF'
 Usage: bash scripts/setup_host_prerequisites.sh [--check|--install]
 
-Checks or installs the mise-managed toolchain for the Environment Gate.
+Bootstraps mise and checks or installs the Environment Gate toolchain.
 Supported hosts are Linux (including WSL2) and macOS.
 EOF
 }
@@ -37,29 +38,29 @@ case "$host_os" in
   *) fail "supported hosts are Linux (including WSL2) and macOS; found ${host_os:-unknown}." ;;
 esac
 
-if ! command -v mise >/dev/null 2>&1; then
-  fail "mise is required. Install mise, then rerun this command."
+if [[ ! -x "$mise_bin" ]]; then
+  fail "the committed mise bootstrap wrapper is missing or not executable: $mise_bin"
 fi
 
 cd "$repo_root"
 
 if [[ "$mode" == "--install" ]]; then
-  if ! mise install python uv java; then
-    fail "mise failed to install the pinned Python, uv, and Java toolchain."
+  if ! "$mise_bin" install python uv java; then
+    fail "the mise wrapper failed to bootstrap mise or install the pinned Python, uv, and Java toolchain."
   fi
 fi
 
 for tool in python uv java; do
-  if ! mise which "$tool" >/dev/null 2>&1; then
+  if ! "$mise_bin" which "$tool" >/dev/null 2>&1; then
     fail "$tool is not installed for this repository. Run: bash scripts/setup_host_prerequisites.sh --install"
   fi
 done
 
 python_version="$(
-  mise exec -- python -c 'import platform; print(platform.python_version())' 2>/dev/null || true
+  "$mise_bin" exec -- python -c 'import platform; print(platform.python_version())' 2>/dev/null || true
 )"
-uv_version="$(mise exec -- uv --version 2>/dev/null || true)"
-java_output="$(mise exec -- java -version 2>&1 || true)"
+uv_version="$("$mise_bin" exec -- uv --version 2>/dev/null || true)"
+java_output="$("$mise_bin" exec -- java -version 2>&1 || true)"
 java_version="$(
   printf '%s\n' "$java_output" | sed -nE 's/.*version "([^"]+)".*/\1/p' | head -n 1
 )"
@@ -76,7 +77,7 @@ if [[ ! "$java_major" =~ ^[0-9]+$ ]] || ((java_major < 17)); then
 fi
 
 echo "Host OS: $host_os"
-echo "mise: $(mise --version)"
-echo "Python: $python_version ($(mise which python))"
-echo "uv: $uv_version ($(mise which uv))"
-echo "Java: $java_version ($(mise which java))"
+echo "mise: $("$mise_bin" --version)"
+echo "Python: $python_version $("$mise_bin" which python)"
+echo "uv: $uv_version $("$mise_bin" which uv)"
+echo "Java: $java_version $("$mise_bin" which java)"

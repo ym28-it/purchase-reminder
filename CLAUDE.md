@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 現在の優先作業: mise管理ツールチェーンによるテスト環境再検証
 
-PR #16で構築したCloudFront直接取得方式のEnvironment Gateは検証・人間承認済みだったが、PR #19でDynamoDB Localの依存取得をMaven Centralへ変更した。その後、Claude Codeで古いuvがPython 3.14.0rc2を選択してGitHub経由の取得に失敗した。さらにクリーンなWorkがWindowsネイティブで起動し、system PythonとJavaがないことが判明したため、対応ホストをLinux（WSL2を含む）/ macOSに限定し、Python 3.14.7、uv 0.12.18、Temurin Java 17をmiseで統一管理する。環境コードを変更するため、旧証跡を現在のGate根拠へ流用しない。
+PR #16で構築したCloudFront直接取得方式のEnvironment Gateは検証・人間承認済みだったが、PR #19でDynamoDB Localの依存取得をMaven Centralへ変更した。その後、Claude Codeで古いuvがPython 3.14.0rc2を選択してGitHub経由の取得に失敗した。さらにクリーンなWorkがWindowsネイティブで起動し、system PythonとJavaがないことが判明したため、対応ホストをLinux（WSL2を含む）/ macOSに限定する。コミット済み`bin/mise`がmise 2026.9.12を`mise.jdx.dev`から取得・checksum検証し、Python 3.14.7、uv 0.12.18、Temurin Java 17をリポジトリローカルに統一構築する。環境コードを変更するため、旧証跡を現在のGate根拠へ流用しない。
 
 [テスト実行環境構築計画](docs/todo/test-environment-rollout.md)をsource of truthとして、同じMaven Wrapper、`tools/java-runtime/pom.xml`、PythonランナーをWork、Claude Code、Pull Request Actionsで使用する。WorkとClaude Codeの両方でEnvironment Gateを再検証し、人間が更新後のGateを承認するまで、購入物登録の機能テストとプロダクトコードを変更しない。
 
@@ -88,10 +88,10 @@ PR #16で構築したCloudFront直接取得方式のEnvironment Gateは検証・
 
 ### 環境セットアップ
 
-- `bash scripts/setup_host_prerequisites.sh --install` — Linux（WSL2を含む）またはmacOS上で、`mise.toml`が選択するPython 3.14.7 / uv 0.12.18 / Temurin Java 17をmiseで導入
-- `bash scripts/setup_host_prerequisites.sh --check` — system toolchainではなくmiseが選択する各バージョンを検証。mise自体がない場合やWindowsネイティブでは`ENVIRONMENT_FAILURE`
-- `mise exec -- <command>` — Environment Gateのコマンドへmise管理の`PATH`と`JAVA_HOME`を適用。非対話環境ではshell activationに依存しない
-- `mise install` — `mise.toml` にある開発ツール全体を導入（Environment Gateだけなら上記`--install`を使う）
+- `bash scripts/setup_host_prerequisites.sh --install` — `bin/mise`でmise 2026.9.12を`mise.jdx.dev`からリポジトリ内へbootstrapし、Python 3.14.7 / uv 0.12.18 / Temurin Java 17を導入
+- `bash scripts/setup_host_prerequisites.sh --check` — system toolchainではなく、コミット済みラッパーが選択する各バージョンを検証。Windowsネイティブやラッパー／bootstrap前提の欠落は`ENVIRONMENT_FAILURE`
+- `./bin/mise exec -- <command>` — Environment Gateのコマンドへリポジトリローカルなmise管理の`PATH`と`JAVA_HOME`を適用。`backend/`からは`../bin/mise`を使用する
+- `./bin/mise install` — `mise.toml`にある開発ツール全体を導入（Environment Gateだけなら上記`--install`を使う）
 - `pre-commit install` — ローカルのpre-commitフック（backendはruff check/format、frontendはbiome check）を有効化
 
 ### Backend（`backend/` から、またはdocker-compose経由）

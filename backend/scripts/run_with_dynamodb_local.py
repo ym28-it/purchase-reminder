@@ -117,6 +117,69 @@ def _maven_environment(cache_root: Path) -> dict[str, str]:
     return environment
 
 
+def _write_maven_truststore(cache_root: Path, environment: dict[str, str]) -> Path | None:
+    certificate = next(
+        (
+            Path(value)
+            for name in (
+                "NODE_EXTRA_CA_CERTS",
+                "SSL_CERT_FILE",
+                "REQUESTS_CA_BUNDLE",
+                "CURL_CA_BUNDLE",
+            )
+            if (value := environment.get(name))
+        ),
+        None,
+    )
+    if certificate is None:
+        return None
+    if not certificate.is_file():
+        _fail(f"configured CA certificate is not readable: {certificate}")
+
+    java_home_value = environment.get("JAVA_HOME")
+    if not java_home_value:
+        _fail("JAVA_HOME is required to create the Maven truststore")
+    java_home = Path(java_home_value)
+    keytool = java_home / "bin" / "keytool"
+    source_truststore = java_home / "lib" / "security" / "cacerts"
+    if not keytool.is_file() or not source_truststore.is_file():
+        _fail("mise-managed Java keytool or default truststore is missing")
+
+    cache_root.mkdir(parents=True, exist_ok=True)
+    truststore = cache_root / f".java-truststore-{uuid.uuid4().hex}.p12"
+    try:
+        shutil.copy2(source_truststore, truststore)
+        result = subprocess.run(
+            [
+                str(keytool),
+                "-importcert",
+                "-noprompt",
+                "-trustcacerts",
+                "-alias",
+                "environment-proxy-ca",
+                "-file",
+                str(certificate),
+                "-keystore",
+                str(truststore),
+                "-storepass",
+                "changeit",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        truststore.unlink(missing_ok=True)
+        _fail(f"unable to create Maven truststore: {error}")
+    if result.returncode != 0:
+        truststore.unlink(missing_ok=True)
+        output = (result.stdout + result.stderr).strip()
+        _fail(f"unable to import configured CA certificate: {output}")
+    truststore.chmod(0o600)
+    return truststore
+
+
 def _write_maven_proxy_settings(cache_root: Path) -> Path | None:
     proxy_value = (
         os.environ.get("HTTPS_PROXY")
@@ -187,16 +250,25 @@ def _run_maven(
     if not wrapper.is_file():
         _fail(f"Maven Wrapper is missing: {wrapper}")
 
-    settings_path = _write_maven_proxy_settings(cache_root)
-    command = ["sh", str(wrapper)]
-    if settings_path is not None:
-        command.extend(["-s", str(settings_path)])
-    command.extend(arguments)
+    settings_path: Path | None = None
+    truststore_path: Path | None = None
     try:
+        environment = _maven_environment(cache_root)
+        settings_path = _write_maven_proxy_settings(cache_root)
+        truststore_path = _write_maven_truststore(cache_root, environment)
+        if truststore_path is not None:
+            environment["MAVEN_OPTS"] = (
+                f"-Djavax.net.ssl.trustStore={truststore_path} "
+                "-Djavax.net.ssl.trustStorePassword=changeit"
+            )
+        command = ["sh", str(wrapper)]
+        if settings_path is not None:
+            command.extend(["-s", str(settings_path)])
+        command.extend(arguments)
         result = subprocess.run(
             command,
             cwd=repository_root,
-            env=_maven_environment(cache_root),
+            env=environment,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -207,6 +279,8 @@ def _run_maven(
     finally:
         if settings_path is not None:
             settings_path.unlink(missing_ok=True)
+        if truststore_path is not None:
+            truststore_path.unlink(missing_ok=True)
 
     output = (result.stdout + result.stderr).strip()
     if result.returncode != 0:
