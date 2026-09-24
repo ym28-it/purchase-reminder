@@ -143,8 +143,7 @@ def test_install_uses_mise_for_uv_and_java_then_uv_for_python(tmp_path: Path) ->
 
     assert result.returncode == 0
     assert (tmp_path / "install.log").read_text() == (
-        "mise install --jobs=1 uv java\n"
-        "uv uv python install 3.14.7\n"
+        "mise install --jobs=1 uv java\nuv uv python install 3.14.7\n"
     )
 
 
