@@ -7,6 +7,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts" / "setup_host_prerequisites.sh"
+MISE_WRAPPER = REPO_ROOT / "bin" / "mise"
 MISE_CONFIG = REPO_ROOT / "mise.toml"
 
 
@@ -166,6 +167,23 @@ def test_check_rejects_missing_mise_wrapper(tmp_path: Path) -> None:
 
     assert result.returncode == 70
     assert "committed mise bootstrap wrapper is missing or not executable" in result.stderr
+
+
+def test_check_does_not_require_global_mise(tmp_path: Path) -> None:
+    result = _run_script(tmp_path)
+
+    assert result.returncode == 0
+
+
+def test_committed_wrapper_pins_mise_and_checksums() -> None:
+    wrapper = MISE_WRAPPER.read_text()
+
+    assert os.access(MISE_WRAPPER, os.X_OK)
+    assert 'local mise_version="${MISE_VERSION:-2026.9.12}"' in wrapper
+    assert "checksum_linux_x86_64=" in wrapper
+    assert "checksum_macos_arm64=" in wrapper
+    assert "https://mise.jdx.dev/v${version}/" in wrapper
+    assert 'current_version="v2026.9.12"' in wrapper
 
 
 def test_mise_exec_does_not_auto_install_and_uv_cannot_use_system_python() -> None:
