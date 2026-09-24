@@ -12,7 +12,7 @@
 |---|---|
 | 更新日 | 2026-09-24 |
 | 旧CloudFront方式のEnvironment Gate検証済みSHA | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
-| 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行）、PR #23（miseツールチェーン統一）、PR #24（mise bootstrapラッパー）、本PR（uvによるPython管理） |
+| 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行）、PR #23（miseツールチェーン統一）、PR #24（mise bootstrapラッパー）、PR #25（uvによるPython管理） |
 | 対象 | ChatGPT Work、Claude Code、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
 | 状態 | mise 2026.9.12の固定bootstrap、mise管理のuv / Java、uv管理のPythonに対応 / Work・Claude Code再検証・人間再承認待ち |

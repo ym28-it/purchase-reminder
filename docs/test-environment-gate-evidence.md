@@ -19,7 +19,7 @@ mise管理のTemurin Javaがクラウド実行環境の追加CAを自動参照�
 truststoreへ追加CAを取り込み、終了時に削除する。
 また、miseによるPython、uv、Javaの並列インストール中にJavaの導入が失敗したため、PR #24では
 `mise install --jobs=1`へ固定し、3ツールを逐次導入した。その後Claude Codeでは、miseによるPythonの
-署名検証が失敗し、uvによる同一バージョンの導入は成功した。本PRではmiseの管理対象をuvとJavaに
+署名検証が失敗し、uvによる同一バージョンの導入は成功した。PR #25ではmiseの管理対象をuvとJavaに
 限定し、Python 3.14.7はuvで`.mise/uv-python/`へ導入する。`UV_MANAGED_PYTHON=1`によりsystem
 Pythonへのフォールバックを禁止する。この変更後の再検証が必要である。
 
