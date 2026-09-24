@@ -95,7 +95,7 @@ bash scripts/setup_host_prerequisites.sh --install
 bash scripts/setup_host_prerequisites.sh --check
 ```
 
-以降のEnvironment Gateコマンドは`./bin/mise exec --`（`backend/`からは`../bin/mise exec --`）経由で実行し、選択済みの`PATH`と`JAVA_HOME`を引き継ぐ。`mise exec`による未導入ツールの自動取得は無効化しており、`--install`が明示したPython、uv、Java以外をEnvironment Gate中に導入しない。OS別package manager、system Python、グローバルJava/Mavenには依存しない。Mavenは固定Maven Wrapperを使うためmiseにもグローバルにも導入しない。mise自体を更新する場合は、別バージョンを実行時指定せず、新しい固定バージョンとchecksumを含む`bin/mise`を再生成して専用PRで検証する。
+以降のEnvironment Gateコマンドは`./bin/mise exec --`（`backend/`からは`../bin/mise exec --`）経由で実行し、選択済みの`PATH`と`JAVA_HOME`を引き継ぐ。`mise exec`による未導入ツールの自動取得は無効化しており、`--install`が明示したPython、uv、Java以外をEnvironment Gate中に導入しない。これら3ツールはクラウド環境での同時展開を避けるため`mise install --jobs=1`で逐次導入する。OS別package manager、system Python、グローバルJava/Mavenには依存しない。Mavenは固定Maven Wrapperを使うためmiseにもグローバルにも導入しない。mise自体を更新する場合は、別バージョンを実行時指定せず、新しい固定バージョンとchecksumを含む`bin/mise`を再生成して専用PRで検証する。
 
 ### 開発環境
 

@@ -17,6 +17,8 @@ bootstrap前提にしない。この環境コード変更後、WorkとClaude Cod
 実行し、新しい検証済みSHAを記録して人間の再承認を受ける。完了するまで機能TDDを開始しない。
 mise管理のTemurin Javaがクラウド実行環境の追加CAを自動参照しないため、Maven実行時だけ一時
 truststoreへ追加CAを取り込み、終了時に削除する。
+また、miseによるPython、uv、Javaの並列インストール中にJavaの導入が失敗したため、PR #24では
+`mise install --jobs=1`へ固定し、3ツールを逐次導入する。この変更後の再検証が必要である。
 
 ## Maven方式のWork検証（uv・Python固定前の参考記録）
 

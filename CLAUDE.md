@@ -88,7 +88,7 @@ PR #16で構築したCloudFront直接取得方式のEnvironment Gateは検証・
 
 ### 環境セットアップ
 
-- `bash scripts/setup_host_prerequisites.sh --install` — `bin/mise`でmise 2026.9.12を`mise.jdx.dev`からリポジトリ内へbootstrapし、Python 3.14.7 / uv 0.12.18 / Temurin Java 17を導入
+- `bash scripts/setup_host_prerequisites.sh --install` — `bin/mise`でmise 2026.9.12を`mise.jdx.dev`からリポジトリ内へbootstrapし、Python 3.14.7 / uv 0.12.18 / Temurin Java 17を`--jobs=1`で逐次導入
 - `bash scripts/setup_host_prerequisites.sh --check` — system toolchainではなく、コミット済みラッパーが選択する各バージョンを検証。Windowsネイティブやラッパー／bootstrap前提の欠落は`ENVIRONMENT_FAILURE`
 - `./bin/mise exec -- <command>` — Environment Gateのコマンドへリポジトリローカルなmise管理の`PATH`と`JAVA_HOME`を適用。`backend/`からは`../bin/mise`を使用する
 - `./bin/mise install` — `mise.toml`にある開発ツール全体を導入（Environment Gateだけなら上記`--install`を使う）

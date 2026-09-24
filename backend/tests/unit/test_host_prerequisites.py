@@ -108,7 +108,7 @@ def test_install_requests_only_environment_gate_tools(tmp_path: Path) -> None:
     result = _run_script(tmp_path, mode="--install")
 
     assert result.returncode == 0
-    assert (tmp_path / "mise-install.log").read_text() == "install python uv java\n"
+    assert (tmp_path / "mise-install.log").read_text() == ("install --jobs=1 python uv java\n")
 
 
 def test_install_failure_is_environment_failure(tmp_path: Path) -> None:

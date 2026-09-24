@@ -81,7 +81,7 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 - Pythonは`3.14.7`、uvは`0.12.18`へ固定する。
 - mise 2026.9.12を固定した公式生成ラッパー`bin/mise`をコミットし、`mise.jdx.dev`から取得した配布物を埋め込みSHA-256で検証して`.mise/`へ配置する。global mise、npm、GitHub Releasesには依存しない。
 - 固定値はルートと`backend/`の`.python-version`、ルートの`mise.toml`、CI、コンテナで一致させる。
-- `scripts/setup_host_prerequisites.sh --install`は`bin/mise`を使い、Environment Gateに必要なPython、uv、Javaだけを導入する。
+- `scripts/setup_host_prerequisites.sh --install`は`bin/mise`を使い、Environment Gateに必要なPython、uv、Javaだけを`mise install --jobs=1`で逐次導入する。クラウド環境では並列インストールを使用しない。
 - `mise.toml`で`exec_auto_install = false`を設定し、`mise exec`がEnvironment Gate対象外のツールを暗黙に取得しないようにする。
 - 非対話環境ではshell activationに依存せず、`./bin/mise exec --`経由で固定ツールと`JAVA_HOME`を子プロセスへ渡す。
 - `backend/`で`../bin/mise exec -- uv sync --python 3.14.7 --frozen`を実行し、既存のPython 3.14 prerelease環境を再利用しない。
@@ -254,7 +254,7 @@ backend/scripts/run_with_dynamodb_local.py
 0. [x] 対応OSとコミット済みmiseラッパーを検査し、Windowsネイティブではfail closedする
 1. [x] miseからuv 0.12.18を選択する
 2. [x] miseからPython 3.14.7を選択する
-3. [x] miseからTemurin Java 17を選択し、Java 17以上を確認する
+3. [x] `--jobs=1`で逐次導入したTemurin Java 17を選択し、Java 17以上を確認する
 4. [x] Maven WrapperとMaven配布物SHA-256を固定
 5. [x] POMからDynamoDB Local 3.3.1とdependency pluginの固定バージョンを読む
 6. [x] 環境proxyを認証情報を残さない一時Maven settingsへ変換

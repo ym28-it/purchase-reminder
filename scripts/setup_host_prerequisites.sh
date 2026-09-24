@@ -45,7 +45,7 @@ fi
 cd "$repo_root"
 
 if [[ "$mode" == "--install" ]]; then
-  if ! "$mise_bin" install python uv java; then
+  if ! "$mise_bin" install --jobs=1 python uv java; then
     fail "the mise wrapper failed to bootstrap mise or install the pinned Python, uv, and Java toolchain."
   fi
 fi
