@@ -87,7 +87,7 @@ AWS
 
 デプロイはコンテナイメージで行う。そのため、バックエンドの開発環境はDockerコンテナで管理する。
 
-Environment Gateは、POSIXシェルを持つLinux（WSL2を含む）またはmacOSで実行する。WindowsネイティブのPowerShell / `cmd.exe`は対象外とし、WindowsではWSL2内で実行する。コミット済みの`bin/mise`がmise 2026.9.12を`mise.jdx.dev`から取得してSHA-256を検証し、リポジトリ内の`.mise/`へ配置する。Python 3.14.7、uv 0.12.18、Temurin Java 17はルートの`mise.toml`から導入するため、system側のmise、Python、Javaには依存しない。
+Environment Gateは、POSIXシェルを持つLinux（WSL2を含む）またはmacOSで実行する。WindowsネイティブのPowerShell / `cmd.exe`は対象外とし、WindowsではWSL2内で実行する。コミット済みの`bin/mise`がmise 2026.9.12を`mise.jdx.dev`から取得してSHA-256を検証し、リポジトリ内の`.mise/`へ配置する。miseはuv 0.12.18とTemurin Java 17を導入し、uvは`.python-version`で固定したPython 3.14.7を`.mise/uv-python/`へ導入するため、system側のmise、Python、Javaには依存しない。
 
 ```bash
 # Linux / WSL2 / macOSで実行する（miseの事前導入は不要）
@@ -95,7 +95,7 @@ bash scripts/setup_host_prerequisites.sh --install
 bash scripts/setup_host_prerequisites.sh --check
 ```
 
-以降のEnvironment Gateコマンドは`./bin/mise exec --`（`backend/`からは`../bin/mise exec --`）経由で実行し、選択済みの`PATH`と`JAVA_HOME`を引き継ぐ。`mise exec`による未導入ツールの自動取得は無効化しており、`--install`が明示したPython、uv、Java以外をEnvironment Gate中に導入しない。これら3ツールはクラウド環境での同時展開を避けるため`mise install --jobs=1`で逐次導入する。OS別package manager、system Python、グローバルJava/Mavenには依存しない。Mavenは固定Maven Wrapperを使うためmiseにもグローバルにも導入しない。mise自体を更新する場合は、別バージョンを実行時指定せず、新しい固定バージョンとchecksumを含む`bin/mise`を再生成して専用PRで検証する。
+以降のEnvironment Gateコマンドは`./bin/mise exec --`（`backend/`からは`../bin/mise exec --`）経由で実行し、`UV_MANAGED_PYTHON=1`、リポジトリローカルのPython格納先、選択済みの`PATH`と`JAVA_HOME`を引き継ぐ。`mise exec`による未導入ツールの自動取得は無効化している。`--install`はuvとJavaを`mise install --jobs=1`で逐次導入した後、uvでPython 3.14.7を導入する。`--check`はネットワーク取得を行わず、uv管理Pythonだけを検証する。OS別package manager、system Python、グローバルJava/Mavenには依存しない。Mavenは固定Maven Wrapperを使うためmiseにもグローバルにも導入しない。mise自体を更新する場合は、別バージョンを実行時指定せず、新しい固定バージョンとchecksumを含む`bin/mise`を再生成して専用PRで検証する。
 
 ### 開発環境
 

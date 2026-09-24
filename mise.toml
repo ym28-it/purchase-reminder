@@ -3,8 +3,13 @@
 # Do not let `mise exec` install unrelated project tools from network backends.
 exec_auto_install = false
 
+[env]
+# Python is installed by uv into repository-local state. Never fall back to a
+# system interpreter, which would make clean Work/Claude Code runs diverge.
+UV_MANAGED_PYTHON = "1"
+UV_PYTHON_INSTALL_DIR = "{{config_root}}/.mise/uv-python"
+
 [tools]
-python = "3.14.7"
 uv = "0.12.18"
 java = "temurin-17"
 bun = "latest"
