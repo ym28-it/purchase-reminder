@@ -1,5 +1,6 @@
 .env
 .cache/
+.mise/
 .DS_Store
 .idea
 .vscode/*

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts" / "setup_host_prerequisites.sh"
+MISE_WRAPPER = REPO_ROOT / "bin" / "mise"
+MISE_CONFIG = REPO_ROOT / "mise.toml"
 
 
 def _write_command(bin_dir: Path, name: str, body: str) -> None:
@@ -22,18 +25,25 @@ def _run_script(
     uv_version: str = "0.12.18",
     java_version: str = "17.0.12",
     missing_tool: str = "",
-    include_mise: bool = True,
+    include_wrapper: bool = True,
     install_fails: bool = False,
     mode: str = "--check",
 ) -> subprocess.CompletedProcess[str]:
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
+    fake_repo = tmp_path / "repo"
+    script_dir = fake_repo / "scripts"
+    wrapper_dir = fake_repo / "bin"
+    command_dir = tmp_path / "commands"
+    script_dir.mkdir(parents=True)
+    wrapper_dir.mkdir()
+    command_dir.mkdir()
+    fake_script = script_dir / SCRIPT.name
+    shutil.copy2(SCRIPT, fake_script)
     install_log = tmp_path / "mise-install.log"
-    _write_command(bin_dir, "uname", f"printf '%s\\n' '{os_name}'")
+    _write_command(command_dir, "uname", f"printf '%s\\n' '{os_name}'")
 
-    if include_mise:
+    if include_wrapper:
         _write_command(
-            bin_dir,
+            wrapper_dir,
             "mise",
             """case "${1:-}" in
   --version)
@@ -64,7 +74,7 @@ esac""",
     env = os.environ.copy()
     env.update(
         {
-            "PATH": f"{bin_dir}{os.pathsep}/usr/bin{os.pathsep}/bin",
+            "PATH": f"{command_dir}{os.pathsep}/usr/bin{os.pathsep}/bin",
             "FAKE_MISE_INSTALL_LOG": str(install_log),
             "FAKE_MISE_INSTALL_FAILS": str(install_fails).lower(),
             "FAKE_MISE_MISSING_TOOL": missing_tool,
@@ -74,8 +84,8 @@ esac""",
         }
     )
     return subprocess.run(
-        ["bash", str(SCRIPT), mode],
-        cwd=REPO_ROOT,
+        ["bash", str(fake_script), mode],
+        cwd=fake_repo,
         env=env,
         capture_output=True,
         text=True,
@@ -98,21 +108,44 @@ def test_install_requests_only_environment_gate_tools(tmp_path: Path) -> None:
     result = _run_script(tmp_path, mode="--install")
 
     assert result.returncode == 0
-    assert (tmp_path / "mise-install.log").read_text() == "install python uv java\n"
+    assert (tmp_path / "mise-install.log").read_text() == ("install --jobs=1 python uv java\n")
 
 
 def test_install_failure_is_environment_failure(tmp_path: Path) -> None:
     result = _run_script(tmp_path, mode="--install", install_fails=True)
 
     assert result.returncode == 70
-    assert "mise failed to install" in result.stderr
+    assert "mise wrapper failed to bootstrap mise or install" in result.stderr
 
 
-def test_check_rejects_missing_mise(tmp_path: Path) -> None:
-    result = _run_script(tmp_path, include_mise=False)
+def test_check_rejects_missing_mise_wrapper(tmp_path: Path) -> None:
+    result = _run_script(tmp_path, include_wrapper=False)
 
     assert result.returncode == 70
-    assert "ENVIRONMENT_FAILURE: mise is required." in result.stderr
+    assert "committed mise bootstrap wrapper is missing or not executable" in result.stderr
+
+
+def test_check_does_not_require_global_mise(tmp_path: Path) -> None:
+    result = _run_script(tmp_path)
+
+    assert result.returncode == 0
+
+
+def test_committed_wrapper_pins_mise_and_checksums() -> None:
+    wrapper = MISE_WRAPPER.read_text()
+
+    assert os.access(MISE_WRAPPER, os.X_OK)
+    assert 'local mise_version="${MISE_VERSION:-2026.9.12}"' in wrapper
+    assert "checksum_linux_x86_64=" in wrapper
+    assert "checksum_macos_arm64=" in wrapper
+    assert "https://mise.jdx.dev/v${version}/" in wrapper
+    assert 'current_version="v2026.9.12"' in wrapper
+
+
+def test_mise_exec_does_not_auto_install_unrelated_tools() -> None:
+    config = MISE_CONFIG.read_text()
+
+    assert "exec_auto_install = false" in config
 
 
 def test_check_rejects_uninstalled_tool(tmp_path: Path) -> None:

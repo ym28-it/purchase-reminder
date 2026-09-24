@@ -9,10 +9,16 @@ Maven Wrapper、POM、推移依存関係、proxy設定をテスト環境の一�
 変更であるため、以下の旧方式の証跡と人間承認を、現在のMaven方式のGate根拠へ流用しない。
 
 Maven方式はWorkで連続2回のEnvironment Gateを通過したが、その後Claude Codeで古いuvが
-Python 3.14.0rc2を選択し、GitHub経由の取得がネットワーク制約で失敗した。uv 0.12.18をPyPI経由で
-bootstrapし、Python 3.14.7を明示的に選択するよう環境コードを変更するため、従来のWork検証も
-現在のGate根拠へ流用しない。WorkとClaude Codeの両方で同一コマンドを連続2回実行し、新しい
-検証済みSHAを記録した後に人間の再承認を受ける。完了するまで機能TDDを開始しない。
+Python 3.14.0rc2を選択し、GitHub経由の取得がネットワーク制約で失敗した。PR #23でツールチェーンを
+mise管理へ移した後、mise自体が未導入のクリーン環境で停止したため、PR #24ではmise 2026.9.12を
+固定した公式生成ラッパー`bin/mise`を追加する。ラッパーは`mise.jdx.dev`から配布物を取得して
+埋め込みSHA-256を検証し、リポジトリ内の`.mise/`へ配置する。global mise、npm、GitHub Releasesを
+bootstrap前提にしない。この環境コード変更後、WorkとClaude Codeの両方で同一コマンドを連続2回
+実行し、新しい検証済みSHAを記録して人間の再承認を受ける。完了するまで機能TDDを開始しない。
+mise管理のTemurin Javaがクラウド実行環境の追加CAを自動参照しないため、Maven実行時だけ一時
+truststoreへ追加CAを取り込み、終了時に削除する。
+また、miseによるPython、uv、Javaの並列インストール中にJavaの導入が失敗したため、PR #24では
+`mise install --jobs=1`へ固定し、3ツールを逐次導入する。この変更後の再検証が必要である。
 
 ## Maven方式のWork検証（uv・Python固定前の参考記録）
 

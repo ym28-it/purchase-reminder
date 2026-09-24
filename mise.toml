@@ -1,3 +1,8 @@
+[settings]
+# Environment Gate tools are installed explicitly by setup_host_prerequisites.sh.
+# Do not let `mise exec` install unrelated project tools from network backends.
+exec_auto_install = false
+
 [tools]
 python = "3.14.7"
 uv = "0.12.18"

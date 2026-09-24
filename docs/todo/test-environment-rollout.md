@@ -10,12 +10,12 @@
 
 | 項目 | 値 |
 |---|---|
-| 更新日 | 2026-09-23 |
+| 更新日 | 2026-09-24 |
 | 旧CloudFront方式のEnvironment Gate検証済みSHA | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
-| 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行）、PR #23（miseツールチェーン統一） |
+| 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行）、PR #23（miseツールチェーン統一）、PR #24（mise bootstrapラッパー） |
 | 対象 | ChatGPT Work、Claude Code、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | mise管理のPython 3.14.7・uv 0.12.18・Temurin Java 17対応 / Work・Claude Code再検証・人間再承認待ち |
+| 状態 | mise 2026.9.12の固定bootstrapと管理ツールチェーン対応 / Work・Claude Code再検証・人間再承認待ち |
 
 ## 2. 基本方針
 
@@ -52,8 +52,8 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 | 接続切替 | `DYNAMODB_ENDPOINT_URL`の有無 |
 | テーブル作成 | `backend/scripts/bootstrap_local_table.py` |
 | ローカル開発 | Docker Compose上のDynamoDB Local |
-| Work | Dockerなし。miseから固定Python・uv・Javaを導入し、HTTP proxyをMaven一時設定へ変換 |
-| Claude Code | Docker利用可否に依存せず、miseとMaven Centralを共通経路として使用 |
+| Work | Dockerなし。コミット済みmiseラッパーから固定Python・uv・Javaを導入し、HTTP proxyをMaven一時設定へ変換 |
+| Claude Code | Docker利用可否やglobal miseに依存せず、`mise.jdx.dev`とMaven Centralを共通経路として使用 |
 
 正式に対応するホストは、POSIXシェルを持つLinux（WSL2を含む）とmacOSとする。WindowsネイティブのPowerShell / `cmd.exe`はEnvironment Gateの実行環境に含めない。WSL2ではWindows側のPythonやJavaを混在させず、WSLディストリビューション内のmiseからツールを導入する。シェルスクリプトと`mvnw`は`.gitattributes`でLFへ固定する。
 
@@ -79,17 +79,19 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 ### 4.1 Pythonとuv
 
 - Pythonは`3.14.7`、uvは`0.12.18`へ固定する。
-- ホスト側で手動導入する前提はmiseだけとし、system PythonやOS別package managerには依存しない。
+- mise 2026.9.12を固定した公式生成ラッパー`bin/mise`をコミットし、`mise.jdx.dev`から取得した配布物を埋め込みSHA-256で検証して`.mise/`へ配置する。global mise、npm、GitHub Releasesには依存しない。
 - 固定値はルートと`backend/`の`.python-version`、ルートの`mise.toml`、CI、コンテナで一致させる。
-- `scripts/setup_host_prerequisites.sh --install`はmiseを使い、Environment Gateに必要なPython、uv、Javaだけを導入する。
-- 非対話環境ではshell activationに依存せず、`mise exec --`経由で固定ツールと`JAVA_HOME`を子プロセスへ渡す。
-- `backend/`で`mise exec -- uv sync --python 3.14.7 --frozen`を実行し、既存のPython 3.14 prerelease環境を再利用しない。
-- miseの欠落、ツール取得、Python 3.14.7またはuv 0.12.18の選択・検証失敗は`ENVIRONMENT_FAILURE`として扱い、機能TDDへ進まない。
+- `scripts/setup_host_prerequisites.sh --install`は`bin/mise`を使い、Environment Gateに必要なPython、uv、Javaだけを`mise install --jobs=1`で逐次導入する。クラウド環境では並列インストールを使用しない。
+- `mise.toml`で`exec_auto_install = false`を設定し、`mise exec`がEnvironment Gate対象外のツールを暗黙に取得しないようにする。
+- 非対話環境ではshell activationに依存せず、`./bin/mise exec --`経由で固定ツールと`JAVA_HOME`を子プロセスへ渡す。
+- `backend/`で`../bin/mise exec -- uv sync --python 3.14.7 --frozen`を実行し、既存のPython 3.14 prerelease環境を再利用しない。
+- ラッパー欠落、mise bootstrap・checksum、ツール取得、Python 3.14.7またはuv 0.12.18の選択・検証失敗は`ENVIRONMENT_FAILURE`として扱い、機能TDDへ進まない。
+- mise更新時は`MISE_VERSION`で別バージョンを動的指定せず、新しい固定バージョンで`bin/mise`を再生成し、専用PRで両環境のGateを再検証する。
 
 ### 4.2 MavenとDynamoDB Local
 
 - Java 17以上を実行ランタイムとし、Temurin Java 17を`mise.toml`で選択する。Java自体のインストールやバージョン管理はMavenの責務にしない。
-- Javaはmiseで導入し、Mavenはグローバル導入せず固定Maven Wrapperだけを使う。`mise exec --`によりMaven WrapperとDynamoDB Localへ選択済み`JAVA_HOME`を渡す。
+- Javaはmiseで導入し、Mavenはグローバル導入せず固定Maven Wrapperだけを使う。`./bin/mise exec --`によりMaven WrapperとDynamoDB Localへ選択済み`JAVA_HOME`を渡す。
 - Maven Wrapper `3.3.4`とApache Maven `3.9.16`をリポジトリ直下へ固定する。
 - Maven配布物はMaven Centralの固定URLから取得し、`.mvn/wrapper/maven-wrapper.properties`のSHA-256で検証する。
 - DynamoDB LocalはMaven Centralの`software.amazon.dynamodb:DynamoDBLocal:3.3.1`として固定する。
@@ -97,12 +99,14 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 - POMではreleaseだけを有効にし、checksum不一致を失敗として扱う。
 - Maven Wrapper、Maven Central解決、POM読取、Java起動の失敗はすべて`ENVIRONMENT_FAILURE`、exit 70とする。
 - Workで`HTTPS_PROXY`等が設定されている場合、ランナーが認証情報をGit管理せず一時的なMaven settingsへ変換し、実行後に削除する。
+- WorkやClaude Codeで追加CA証明書が設定されている場合、mise管理Javaの既定truststoreへ一時的に取り込み、Maven終了後に削除する。
 - Mavenのローカルリポジトリ、解決済みJAR、native library、DBファイル、PID、ログはGit管理しない。
 
 管理ファイル:
 
 ```text
 scripts/setup_host_prerequisites.sh
+bin/mise
 .gitattributes
 .python-version
 backend/.python-version
@@ -247,10 +251,10 @@ backend/scripts/run_with_dynamodb_local.py
 
 共通の環境構築・実行経路は次を行う。
 
-0. [x] 対応OSとmiseの存在を検査し、Windowsネイティブではfail closedする
+0. [x] 対応OSとコミット済みmiseラッパーを検査し、Windowsネイティブではfail closedする
 1. [x] miseからuv 0.12.18を選択する
 2. [x] miseからPython 3.14.7を選択する
-3. [x] miseからTemurin Java 17を選択し、Java 17以上を確認する
+3. [x] `--jobs=1`で逐次導入したTemurin Java 17を選択し、Java 17以上を確認する
 4. [x] Maven WrapperとMaven配布物SHA-256を固定
 5. [x] POMからDynamoDB Local 3.3.1とdependency pluginの固定バージョンを読む
 6. [x] 環境proxyを認証情報を残さない一時Maven settingsへ変換
@@ -265,15 +269,15 @@ backend/scripts/run_with_dynamodb_local.py
 15. [x] 自分が起動したDynamoDB Localだけを停止
 16. [x] ログと終了理由を出力
 
-ホスト前提の構築とGate本体を次の順序で実行する。miseは利用者が事前に導入する。`--install`はEnvironment Gateに必要なmise管理ツールだけを導入し、`--check`はネットワーク取得を行わず選択済みバージョンを検証する。
+ホスト前提の構築とGate本体を次の順序で実行する。miseの事前導入は不要で、`bin/mise`が固定版をbootstrapする。`--install`はEnvironment Gateに必要なmise管理ツールだけを導入し、`--check`はネットワーク取得を行わず選択済みバージョンを検証する。
 
 ```bash
 bash scripts/setup_host_prerequisites.sh --install
 bash scripts/setup_host_prerequisites.sh --check
 cd backend
-mise exec -- uv sync --python 3.14.7 --frozen
-mise exec -- uv run python -m scripts.run_with_dynamodb_local \
-  -- mise exec -- uv run pytest -m integration
+../bin/mise exec -- uv sync --python 3.14.7 --frozen
+../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local \
+  -- ../bin/mise exec -- uv run pytest -m integration
 ```
 
 Maven Wrapper bootstrap、Maven Central解決、checksum、Java、起動、ready checkの失敗は`ENVIRONMENT_FAILURE`として扱い、Valid Redへ数えない。
@@ -322,7 +326,8 @@ backend/pyproject.toml
 | 検証 | 期待結果 |
 |---|---|
 | host OS | Linux（WSL2を含む）またはmacOS。WindowsネイティブはFail |
-| host prerequisites | mise、Linux（WSL2を含む）またはmacOS |
+| host prerequisites | Linux（WSL2を含む）またはmacOS、`curl`または`wget`、`tar`、`sha256sum`または`shasum` |
+| mise bootstrap | `bin/mise`からmise 2026.9.12を`mise.jdx.dev`経由で取得し、埋め込みSHA-256検証 |
 | mise tool selection | Python 3.14.7、uv 0.12.18、Temurin Java 17 |
 | uv version | 0.12.18 |
 | Python version | 3.14.7（prerelease不可） |

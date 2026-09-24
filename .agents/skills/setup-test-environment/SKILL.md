@@ -14,7 +14,7 @@ Read these files before changing anything:
 - `CLAUDE.md`
 - `docs/todo/test-environment-rollout.md`
 
-Treat the rollout document and root `mise.toml` as authoritative for tool versions, Maven coordinates, wrapper checksum, safety checks, lifecycle, file scope, and Environment Gate criteria. Do not duplicate or reinterpret their contract. If either is missing, the rollout is still marked unapproved, or they conflict with the repository state, stop and report the blocker.
+Treat the rollout document, `bin/mise`, and root `mise.toml` as authoritative for bootstrap and tool versions, checksums, Maven coordinates, safety checks, lifecycle, file scope, and Environment Gate criteria. Do not duplicate or reinterpret their contract. If any is missing, the rollout is still marked unapproved, or they conflict with the repository state, stop and report the blocker.
 
 ## Scope
 
@@ -29,20 +29,20 @@ Treat the rollout document and root `mise.toml` as authoritative for tool versio
 ## Workflow
 
 1. Determine whether the environment work is absent, partial, or already implemented.
-2. Confirm the host is Linux (including WSL2) or macOS and that `mise` is available. Native Windows, a missing `mise`, or an untrusted/unreadable `mise.toml` is an environment blocker; do not fall back to system package managers or system Python.
-3. From the repository root, run `bash scripts/setup_host_prerequisites.sh --install`. This is the approved, explicit setup action and must install only the Python, uv, and Java versions selected by `mise.toml`.
-4. Run `bash scripts/setup_host_prerequisites.sh --check` and record the mise, Python, uv, and Java versions. Run subsequent tool commands through `mise exec --` so the selected `JAVA_HOME` and `PATH` are inherited without shell activation.
-5. Run `mise exec -- uv sync --python 3.14.7 --frozen` in `backend/` so an older prerelease virtual environment cannot be reused.
+2. Confirm the host is Linux (including WSL2) or macOS and that the committed `bin/mise` wrapper is executable. Confirm `curl` or `wget`, `tar`, and `sha256sum` or `shasum` are available for its verified bootstrap. Native Windows or a missing bootstrap prerequisite is an environment blocker; do not fall back to system package managers, system Python, or a global mise installation.
+3. From the repository root, run `bash scripts/setup_host_prerequisites.sh --install`. This is the approved setup action: `bin/mise` bootstraps the pinned mise release into the ignored `.mise/` directory, verifies its checksum, and installs only the Python, uv, and Java versions selected by `mise.toml`. The script must pass `--jobs=1` to mise so those tools install sequentially; do not replace it with parallel installation.
+4. Run `bash scripts/setup_host_prerequisites.sh --check` and record the mise, Python, uv, and Java versions. Run subsequent tool commands through the committed wrapper so the localized mise state, selected `JAVA_HOME`, and `PATH` are inherited without shell activation.
+5. In `backend/`, run `../bin/mise exec -- uv sync --python 3.14.7 --frozen` so an older prerelease virtual environment cannot be reused.
 6. Confirm that all SDK access is guarded before the first possible real-AWS call.
 7. Implement the missing rollout steps as one coherent environment change, reusing the root Maven Wrapper, `tools/java-runtime/pom.xml`, `MAIN_TABLE_SCHEMA`, and the application DynamoDB access path.
 8. Run existing backend unit tests without the DynamoDB Local runner.
-9. Run integration and environment smoke tests through the approved runner. Invoke the runner and every child `uv` command through `mise exec --`.
+9. Run integration and environment smoke tests through the approved runner. From `backend/`, invoke the runner and every child `uv` command through `../bin/mise exec --`.
 10. Execute the complete Environment Gate twice consecutively, including negative fail-closed cases and child-process cleanup.
 11. Record exact commands, mise, uv, Python, and Java versions, commit SHA when available, pass/fail counts, and any deviations from the plan.
 
 ## Stop conditions
 
-Stop without treating the result as a feature-test failure when any host support, mise availability, mise tool installation, exact tool selection, Maven Wrapper bootstrap, Maven Central dependency resolution, checksum, Java, startup, readiness, safety, cleanup, or environment-smoke check fails. Classify it as `ENVIRONMENT_FAILURE`, preserve useful logs, and do not proceed to feature TDD.
+Stop without treating the result as a feature-test failure when any host support, mise wrapper prerequisite, mise bootstrap or checksum, mise tool installation, exact tool selection, Maven Wrapper bootstrap, Maven Central dependency resolution, checksum, Java, startup, readiness, safety, cleanup, or environment-smoke check fails. Classify it as `ENVIRONMENT_FAILURE`, preserve useful logs, and do not proceed to feature TDD.
 
 Finish by reporting exactly one state:
 
