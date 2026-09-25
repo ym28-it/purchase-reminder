@@ -507,20 +507,21 @@ test: complete purchase creation post-implementation verification
 
 ### 次の準備
 
-9. 4エージェント＋オーケストレーターの各工程を実行するSkills
+9. [x] 4エージェント＋オーケストレーターの各工程を実行するSkills
+10. [ ] 新しいコンテキストでオーケストレーターの開始条件・成果物引き継ぎを動作確認
 
 ### TDD開始後
 
-10. 承認済み購入物登録TDDテストとValid Red
-11. 購入物登録の垂直スライス実装とTDD Green
-12. 実装後テスト、代表E2E、独立した最終レビュー
-13. GitHub Actions integration / E2E
+11. 承認済み購入物登録TDDテストとValid Red
+12. 購入物登録の垂直スライス実装とTDD Green
+13. 実装後テスト、代表E2E、独立した最終レビュー
+14. GitHub Actions integration / E2E
 
 ### 後続
 
-14. AWS stagingのTerraformとOIDC
-15. Backend/Frontendのstaging deploy
-16. staging smoke・重要E2E
+15. AWS stagingのTerraformとOIDC
+16. Backend/Frontendのstaging deploy
+17. staging smoke・重要E2E
 
 ## 13. TDD開始前の最終チェックリスト
 
@@ -537,6 +538,8 @@ test: complete purchase creation post-implementation verification
 - [x] TDD計画のGAP-002を解消済み
 - [x] mise / uv管理ツールチェーンを含むMaven方式のEnvironment Gate検証済みSHAを記録
 - [x] 人間がMaven方式のEnvironment Gateを再承認
+- [x] 開発サイクル実行Skillsを整備・検証
+- [ ] 新しいコンテキストでオーケストレーターの開始条件・引き継ぎを確認
 - [ ] 人間が「TDD開始」を指示
 
-Environment Gate再検証・再承認は完了済みである。開発サイクル実行Skillsを整備し、その後に人間が明示的な「TDD開始」を指示するまで、購入物登録のTDDテスト作成へ進まない。
+Environment Gateと開発サイクル実行Skillsの整備は完了済みである。新しいコンテキストでオーケストレーターの開始条件と成果物引き継ぎを確認し、その後に人間が明示的な「TDD開始」を指示するまで、購入物登録のTDDテスト作成へ進まない。
