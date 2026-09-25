@@ -2,26 +2,40 @@
 
 ## 現在の状態
 
-`ENVIRONMENT_REVALIDATION_REQUIRED`
+`ENVIRONMENT_READY`
 
-PR #19でDynamoDB Localの取得経路をCloudFront配布アーカイブからMaven Centralへ変更し、
-Maven Wrapper、POM、推移依存関係、proxy設定をテスト環境の一部へ追加した。これは環境コードの
-変更であるため、以下の旧方式の証跡と人間承認を、現在のMaven方式のGate根拠へ流用しない。
+PR #25をマージした最新`main`を、キャッシュを前提としないクリーンなWork環境で構築し、
+`setup-test-environment` Skillが定義する完全なEnvironment Gateを連続2回実行した。
+両方が成功し、2026-09-25に人間が現在のテスト環境を承認したため、環境構築フェーズを完了とする。
+機能TDDの開始は別の判断であり、明示的な「TDD開始」指示までは開始しない。
 
-Maven方式はWorkで連続2回のEnvironment Gateを通過したが、その後Claude Codeで古いuvが
-Python 3.14.0rc2を選択し、GitHub経由の取得がネットワーク制約で失敗した。PR #23でツールチェーンを
-mise管理へ移した後、mise自体が未導入のクリーン環境で停止したため、PR #24ではmise 2026.9.12を
-固定した公式生成ラッパー`bin/mise`を追加する。ラッパーは`mise.jdx.dev`から配布物を取得して
-埋め込みSHA-256を検証し、リポジトリ内の`.mise/`へ配置する。global mise、npm、GitHub Releasesを
-bootstrap前提にしない。この環境コード変更後、WorkとClaude Codeの両方で同一コマンドを連続2回
-実行し、新しい検証済みSHAを記録して人間の再承認を受ける。完了するまで機能TDDを開始しない。
-mise管理のTemurin Javaがクラウド実行環境の追加CAを自動参照しないため、Maven実行時だけ一時
-truststoreへ追加CAを取り込み、終了時に削除する。
-また、miseによるPython、uv、Javaの並列インストール中にJavaの導入が失敗したため、PR #24では
-`mise install --jobs=1`へ固定し、3ツールを逐次導入した。その後Claude Codeでは、miseによるPythonの
-署名検証が失敗し、uvによる同一バージョンの導入は成功した。PR #25ではmiseの管理対象をuvとJavaに
-限定し、Python 3.14.7はuvで`.mise/uv-python/`へ導入する。`UV_MANAGED_PYTHON=1`によりsystem
-Pythonへのフォールバックを禁止する。この変更後の再検証が必要である。
+| 項目 | 値 |
+|---|---|
+| 実行日 | 2026-09-25 |
+| Environment Gate検証済みSHA | `c0b0e38772f91dfd789a590dfcd9f5ffcde07a45` |
+| ブランチ | `main` |
+| 実行環境 | ChatGPT Work / clean context |
+| 実行回数 | 完全なEnvironment Gateを連続2回 |
+| 結果 | 2回ともPass |
+| Environment Gate人間承認 | 承認済み（2026-09-25） |
+| PR #25後のGitHub Actions | Ubuntu/macOS host prerequisites、Backend/Frontend test・lintがPass |
+
+このSHAではmise 2026.9.12がuv 0.12.18とTemurin Java 17を管理し、uvがPython 3.14.7を
+リポジトリローカルへ導入する。`UV_MANAGED_PYTHON=1`によりsystem Pythonへのフォールバックを
+禁止し、Maven WrapperからDynamoDB Local 3.3.1を解決する。環境障害は
+`ENVIRONMENT_FAILURE`、exit 70として機能テストのRedと分離する。
+
+Claude Code固有のクラウド実行環境での再実行結果は、取得できた段階で補足証跡として追記する。
+Workの正式Gate、Pull Requestと`main`のUbuntu/macOS Actions、および人間承認が完了しているため、
+この補足確認は現在の`ENVIRONMENT_READY`と開発サイクルSkills整備をブロックしない。後日の
+Claude Code検証で環境契約上の不具合が判明した場合は、環境コードを修正してGateを再度開く。
+
+## 再検証に至った変更履歴
+
+PR #19でDynamoDB Localの取得経路をCloudFront配布アーカイブからMaven Centralへ変更した。
+PR #23でmise管理へ移行し、PR #24で固定mise bootstrapと`--jobs=1`による逐次導入を追加した。
+PR #25ではmiseの管理対象をuvとJavaに限定し、署名検証に成功したuv経由でPython 3.14.7を
+`.mise/uv-python/`へ導入する方式に変更した。これらの変更後に上記の正式Gateを完了した。
 
 ## Maven方式のWork検証（uv・Python固定前の参考記録）
 
@@ -174,11 +188,10 @@ PRブランチ上の証跡からPR #16マージ後の最新`main`上の証跡へ
 
 ## 検証済み環境コード基準とTDD作業開始SHA
 
-`2983f363565f09cf364dfd0d6ae20c7846c3cc01`は、Environment Gateを実際に通過した
-**検証済み環境コードSHA**として固定する。これは移動する「最新main」のSHAではない。
-PR #17は文書だけを変更したため、そのマージによってこの環境検証結果は無効にならず、
-Environment Gateを再実行する必要もない。
+`c0b0e38772f91dfd789a590dfcd9f5ffcde07a45`を現在の**検証済み環境コードSHA**として固定する。これは移動する「最新main」の
+SHAではない。今後、文書だけを変更した場合はGateを再実行せず、環境コードまたはテスト基盤を
+変更した場合は新しいSHAでGateを再実行する。
 
-購入物登録TDDを開始するAgentは、PR #17マージ後の最新`main`からブランチを作成し、
-実際の分岐元を**TDD作業開始SHA**としてTDD実行記録へ別途記録する。
-`docs/specs/purchase-create-tdd-plan.md`のGAP-002は旧CloudFront方式では解消済みだった。PR #19のマージ後は、Maven方式のWork・Claude Code再検証、新しい検証済みSHAの記録、人間によるEnvironment Gate再承認が必要である。その後も、機能TDDの開始には人間による明示的な「TDD開始」指示を別途必要とする。
+購入物登録TDDを開始するAgentは、その時点の最新`main`からブランチを作成し、実際の分岐元を
+**TDD作業開始SHA**としてTDD実行記録へ別途記録する。GAP-002は現在のMaven・mise・uv方式で
+Resolvedである。機能TDDの開始には人間による明示的な「TDD開始」指示を別途必要とする。

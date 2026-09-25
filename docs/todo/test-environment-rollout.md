@@ -10,12 +10,13 @@
 
 | 項目 | 値 |
 |---|---|
-| 更新日 | 2026-09-24 |
-| 旧CloudFront方式のEnvironment Gate検証済みSHA | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
+| 更新日 | 2026-09-25 |
+| 現行方式のEnvironment Gate検証済みSHA | `c0b0e38772f91dfd789a590dfcd9f5ffcde07a45` |
+| 旧CloudFront方式の参考SHA | `2983f363565f09cf364dfd0d6ae20c7846c3cc01` |
 | 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行）、PR #23（miseツールチェーン統一）、PR #24（mise bootstrapラッパー）、PR #25（uvによるPython管理） |
 | 対象 | ChatGPT Work、Claude Code、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | mise 2026.9.12の固定bootstrap、mise管理のuv / Java、uv管理のPythonに対応 / Work・Claude Code再検証・人間再承認待ち |
+| 状態 | `ENVIRONMENT_READY` / Work連続2回、Ubuntu/macOS CI、人間承認済み |
 
 ## 2. 基本方針
 
@@ -59,14 +60,12 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 
 ### 3.2 Baseline
 
-- Backend tests: 53 passed
-- Backend lint / format: Pass
-- Frontend lint / format: Pass
-- Frontend tests: 既存テスト0件
-- Frontend build: `src/routeTree.gen`不足による既存失敗
-- Backend integration: 環境スモーク・fail-closed・Maven設定テスト15件
-- E2E: READMEのみ
-- WorkとClaude CodeからMaven Centralへ到達可能。環境ごとの完全なGate再検証はPR #19で実施する
+- 最新`main`（`c0b0e38772f91dfd789a590dfcd9f5ffcde07a45`）でEnvironment Gateが連続2回Pass
+- Backend / Frontendのtest・lint・formatは最新`main`のGitHub ActionsでPass
+- Ubuntu / macOSのhost prerequisitesは最新`main`のGitHub ActionsでPass
+- Backend integration基盤、環境スモーク、fail-closed、Maven設定テストはPass
+- Frontend buildの`src/routeTree.gen`不足は機能開発側の既知課題（GAP-003）
+- E2EはREADMEのみで、最初の垂直スライスの実装後テストとして追加予定
 
 ### 3.3 承認済みTDD計画との関係
 
@@ -231,7 +230,7 @@ portが開いていることだけをready判定にしない。
 
 完了条件: 環境仕様と基準コミットが固定されている。
 
-### Step 1: 共通ランタイムラッパーを実装する（Maven移行実装済み / 再検証待ち）
+### Step 1: 共通ランタイムラッパーを実装する（実装・検証済み）
 
 成果物:
 
@@ -282,7 +281,7 @@ cd backend
 
 Maven Wrapper bootstrap、Maven Central解決、checksum、Java、起動、ready checkの失敗は`ENVIRONMENT_FAILURE`として扱い、Valid Redへ数えない。
 
-完了条件: WorkとClaude Codeのクリーン環境から同じ承認済み手順でDynamoDB Localを起動・停止し、Environment Gateをそれぞれ通過できる。
+完了条件: **達成済み。** クリーンなWorkで共通手順を連続2回実行し、Ubuntu/macOSのActionsでもhost prerequisitesが成功した。Claude Code固有環境での結果は補足証跡として後日追記できる。
 
 ### Step 2: pytest統合テスト基盤を実装する（実装・検証済み）
 
@@ -319,7 +318,7 @@ backend/pyproject.toml
 
 完了条件: **達成済み。** 環境スモークが成功し、機能テストを追加していない状態を維持している。
 
-### Step 3: Work / Claude Code Environment Gateを再検証する（Maven方式未完了）
+### Step 3: Environment Gateを再検証する（完了・人間承認済み）
 
 最低限、各環境で次を記録する。
 
@@ -328,7 +327,8 @@ backend/pyproject.toml
 | host OS | Linux（WSL2を含む）またはmacOS。WindowsネイティブはFail |
 | host prerequisites | Linux（WSL2を含む）またはmacOS、`curl`または`wget`、`tar`、`sha256sum`または`shasum` |
 | mise bootstrap | `bin/mise`からmise 2026.9.12を`mise.jdx.dev`経由で取得し、埋め込みSHA-256検証 |
-| mise tool selection | uv 0.12.18、Temurin Java 17 |\n| uv Python selection | repository-local Python 3.14.7（system fallback不可） |
+| mise tool selection | uv 0.12.18、Temurin Java 17 |
+| uv Python selection | repository-local Python 3.14.7（system fallback不可） |
 | uv version | 0.12.18 |
 | Python version | 3.14.7（prerelease不可） |
 | Java version | 17以上 |
@@ -359,32 +359,33 @@ Environment Gate:
 - [x] Work proxyとproxyなし環境を同じランナーで扱う
 - [x] 単一コマンドで依存解決、起動、ready check、子コマンド、停止を行う
 - [x] 実AWSへ接続しないfail-closed検査がある
-- [ ] mise / uv管理ツールチェーンでWorkの環境スモークと既存unit testが連続2回成功
-- [ ] Claude Codeで環境スモークと既存unit testが連続2回成功
-- [ ] mise / uv管理ツールチェーンでWorkのMaven・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として再確認
-- [ ] Maven方式の検証済みSHAを記録
-- [ ] 人間が更新後のEnvironment Gateを承認
+- [x] mise / uv管理ツールチェーンでWorkの環境スモークと既存unit testが連続2回成功
+- [x] Ubuntu/macOS Actionsでhost prerequisitesと既存testが成功
+- [x] mise / uv管理ツールチェーンでWorkのMaven・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として再確認
+- [x] Maven方式の検証済みSHAを記録
+- [x] 人間が更新後のEnvironment Gateを承認
+- [ ] Claude Code固有のクラウド実行結果を補足証跡として追記（非ブロッキング）
 
-旧CloudFront方式は`ENVIRONMENT_READY`かつ人間承認済みだったが、PR #19は環境コードと依存取得経路を変更するため、その証跡を現在のMaven方式へ流用しない。WorkとClaude Codeの両方で再検証し、人間が再承認するまで機能TDDを開始しない。
+PR #25マージ後の最新`main`で現行方式の正式Gateと人間承認が完了した。旧CloudFront方式の証跡は履歴としてのみ保持する。Claude Code固有環境の補足検証で不具合が見つかった場合はGateを再度開く。
 
 ### Step 4: TDD計画へ環境証跡を反映する
 
-- [ ] Maven移行後の環境整備コミットSHAを記録する
-- [ ] WorkとClaude Codeの実行コマンドと結果を記録する
+- [x] Maven・mise・uv移行後の環境整備コミットSHAを記録する
+- [x] Workの正式GateとUbuntu/macOS Actionsの結果を記録する
 - [x] PR #14で記録したGAP-002の解消状況を更新する
 - [x] 環境整備とTDDテストのコミットを分離する（機能TDDテストは未作成）
 - [x] 環境整備PRをマージする
 - [x] 最新`main`でBaselineを再実行する
-- [ ] Maven方式のEnvironment Gate検証済みSHAを固定する
+- [x] Maven・mise・uv方式のEnvironment Gate検証済みSHAを固定する
 
-PR #19は環境コードと依存取得経路を変更するため、旧検証済みSHAを現在のGate根拠にしない。Maven方式の検証完了後に新しい検証済みSHAを固定する。以後も環境コードまたはテスト基盤を変更した場合は再検証し、文書だけの変更では更新しない。TDDを開始するAgentは、その時点の最新`main`からブランチを作成し、
+`c0b0e38772f91dfd789a590dfcd9f5ffcde07a45`を現行方式の検証済み環境コードSHAとして固定する。以後も環境コードまたはテスト基盤を変更した場合は再検証し、文書だけの変更では更新しない。TDDを開始するAgentは、その時点の最新`main`からブランチを作成し、
 実際の分岐元をTDD作業開始SHAとしてTDD実行記録へ記録する。
 
-ここまで完了するまで、承認済みの購入物登録TDDテストコードを作成しない。
+Steps 0〜4は完了した。購入物登録TDDテストコードは、人間による明示的な「TDD開始」指示後に作成する。
 
 ## 7. TDD開始後
 
-Maven方式のEnvironment Gate再検証と人間再承認が完了した後、人間の明示的な「TDD開始」を起点として、[4エージェント＋オーケストレーター開発運用](../FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)を開始する。
+Environment Gateと人間承認は完了済みである。次に開発サイクル実行Skillsを整備し、その後の人間による明示的な「TDD開始」を起点として、[4エージェント＋オーケストレーター開発運用](../FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)を開始する。
 
 1. 仕様エージェントの承認済み仕様、論理テストケース、中心的契約、TDD計画を入力として固定する
 2. 新しいテストエージェントが承認済み最小TDDセットをテストコードへ変換する
@@ -496,25 +497,29 @@ test: complete purchase creation post-implementation verification
 2. PR #16: Work用DynamoDB Localランタイム、fail-closed検査、pytest integration fixture、marker、環境スモーク
 3. PR #17: 最新`main`での旧CloudFront方式Environment Gate証跡と文言整合
 4. PR #19: DynamoDB Localの取得をMaven Centralへ統一し、Work・Claude Codeの共通経路を構築
+5. PR #23: miseによるツールチェーン統一
+6. PR #24: 固定mise bootstrapラッパーと逐次インストール
+7. PR #25: uvによるPython管理
+8. 最新`main`のEnvironment Gate連続2回成功と人間承認
 
-旧CloudFront方式のEnvironment Gateは人間承認済みである。PR #19で環境コードを変更するため、Maven方式は再検証・再承認する。
+現行のMaven・mise・uv方式は`ENVIRONMENT_READY`である。旧CloudFront方式の証跡は履歴として保持する。
 
 ### 次の準備
 
-5. 4エージェント＋オーケストレーターの各工程を実行するSkills
+9. 4エージェント＋オーケストレーターの各工程を実行するSkills
 
 ### TDD開始後
 
-6. 承認済み購入物登録TDDテストとValid Red
-7. 購入物登録の垂直スライス実装とTDD Green
-8. 実装後テスト、代表E2E、独立した最終レビュー
-9. GitHub Actions integration / E2E
+10. 承認済み購入物登録TDDテストとValid Red
+11. 購入物登録の垂直スライス実装とTDD Green
+12. 実装後テスト、代表E2E、独立した最終レビュー
+13. GitHub Actions integration / E2E
 
 ### 後続
 
-10. AWS stagingのTerraformとOIDC
-11. Backend/Frontendのstaging deploy
-12. staging smoke・重要E2E
+14. AWS stagingのTerraformとOIDC
+15. Backend/Frontendのstaging deploy
+16. staging smoke・重要E2E
 
 ## 13. TDD開始前の最終チェックリスト
 
@@ -526,11 +531,11 @@ test: complete purchase creation post-implementation verification
 - [x] APIレベルready checkが成功
 - [x] pytest integration fixtureが実AWSへ接続しない
 - [x] 設定キャッシュを開始前後にクリア
-- [ ] mise / uv管理ツールチェーンで環境スモークが連続2回成功
-- [ ] mise / uv管理ツールチェーンで既存unit testが成功
+- [x] mise / uv管理ツールチェーンで環境スモークが連続2回成功
+- [x] mise / uv管理ツールチェーンで既存unit testが成功
 - [x] TDD計画のGAP-002を解消済み
-- [ ] mise / uv管理ツールチェーンを含むMaven方式のEnvironment Gate検証済みSHAを記録
-- [ ] 人間がMaven方式のEnvironment Gateを再承認
+- [x] mise / uv管理ツールチェーンを含むMaven方式のEnvironment Gate検証済みSHAを記録
+- [x] 人間がMaven方式のEnvironment Gateを再承認
 - [ ] 人間が「TDD開始」を指示
 
-Maven方式のEnvironment Gate再検証・再承認と、その後の明示的な「TDD開始」指示が完了するまで、購入物登録のTDDテスト作成へ進まない。
+Environment Gate再検証・再承認は完了済みである。開発サイクル実行Skillsを整備し、その後に人間が明示的な「TDD開始」を指示するまで、購入物登録のTDDテスト作成へ進まない。

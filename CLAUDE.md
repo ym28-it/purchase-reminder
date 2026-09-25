@@ -16,13 +16,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。DynamoDBの汎用モデル基盤には単体テストがあるが、purchase CRUD、services、API、frontendのテストは未整備。Cognito認証、購入タイミングのドメインロジック、通知、Terraform、デプロイ、E2Eは未実装。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
 
-### 現在の優先作業: mise管理ツールチェーンによるテスト環境再検証
+### 現在の優先作業: 開発サイクル実行Skillsの整備
 
-PR #16で構築したCloudFront直接取得方式のEnvironment Gateは検証・人間承認済みだったが、PR #19でDynamoDB Localの依存取得をMaven Centralへ変更した。その後、Claude Codeで古いuvがPython 3.14.0rc2を選択してGitHub経由の取得に失敗した。さらにクリーンなWorkがWindowsネイティブで起動し、system PythonとJavaがないことが判明したため、対応ホストをLinux（WSL2を含む）/ macOSに限定する。コミット済み`bin/mise`がmise 2026.9.12を`mise.jdx.dev`から取得・checksum検証する。miseはuv 0.12.18とTemurin Java 17を導入し、uvは`.python-version`で固定したPython 3.14.7をリポジトリローカルに構築する。環境コードを変更するため、旧証跡を現在のGate根拠へ流用しない。
+PR #25をマージした最新`main`（`c0b0e38772f91dfd789a590dfcd9f5ffcde07a45`）を対象に、クリーンなWork環境で完全なEnvironment Gateが連続2回成功し、2026-09-25に人間承認された。mise 2026.9.12、uv 0.12.18、uv管理Python 3.14.7、Temurin Java 17、Maven Wrapper、DynamoDB Local 3.3.1を使うテスト環境は`ENVIRONMENT_READY`であり、環境構築フェーズは完了している。
 
-[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)をsource of truthとして、同じMaven Wrapper、`tools/java-runtime/pom.xml`、PythonランナーをWork、Claude Code、Pull Request Actionsで使用する。WorkとClaude Codeの両方でEnvironment Gateを再検証し、人間が更新後のGateを承認するまで、購入物登録の機能テストとプロダクトコードを変更しない。
+[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)と[Environment Gate実行証跡](docs/test-environment-gate-evidence.md)を環境契約のsource of truthとする。Claude Code固有のクラウド実行検証は後日追記できる補足確認であり、現在の開発開始をブロックしない。環境コードまたはテスト基盤を変更した場合は、同じGateを再実行して人間の再承認を得る。
 
-テスト環境の構築・確認・修復は、Claude Codeでは`/setup-test-environment`、対応するWork環境では`$setup-test-environment` Skillを明示的に呼び出して開始する。このSkillは環境構築と検証だけを担当し、機能TDDへ進まない。Environment Gate再承認後の次工程は、[4エージェント＋オーケストレーター開発運用](docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)に従う実行Skillsの整備である。Skills整備自体も、人間による明示的な「TDD開始」を意味しない。
+次工程は、[4エージェント＋オーケストレーター開発運用](docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)に従う実行Skillsの整備である。テスト環境の確認・修復にはClaude Codeの`/setup-test-environment`またはWorkの`$setup-test-environment`を使用するが、このSkillは機能TDDを開始しない。実行Skillsの整備も、人間による明示的な「TDD開始」を意味しない。
 
 ## 開発分担（仕様駆動）
 
