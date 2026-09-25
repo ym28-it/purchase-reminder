@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 PR #25をマージした最新`main`（`c0b0e38772f91dfd789a590dfcd9f5ffcde07a45`）を対象に、クリーンなWork環境で完全なEnvironment Gateが連続2回成功し、2026-09-25に人間承認された。mise 2026.9.12、uv 0.12.18、uv管理Python 3.14.7、Temurin Java 17、Maven Wrapper、DynamoDB Local 3.3.1を使うテスト環境は`ENVIRONMENT_READY`であり、環境構築フェーズは完了している。
 
-[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)と[Environment Gate実行証跡](docs/test-environment-gate-evidence.md)を環境契約のsource of truthとする。Claude Code固有のクラウド実行検証は後日追記できる補足確認であり、現在の開発開始をブロックしない。環境コードまたはテスト基盤を変更した場合は、同じGateを再実行して人間の再承認を得る。
+[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)と[Environment Gate実行証跡](docs/test-environment-gate-evidence.md)を環境契約のsource of truthとする。同じ構築・実行経路はClaude Codeでも成功しており、Work、Claude Code、Pull Request Actionsで再現可能である。環境コードまたはテスト基盤を変更した場合は、同じGateを再実行して人間の再承認を得る。
 
 次工程は、[4エージェント＋オーケストレーター開発運用](docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)に従う実行Skillsの整備である。テスト環境の確認・修復にはClaude Codeの`/setup-test-environment`またはWorkの`$setup-test-environment`を使用するが、このSkillは機能TDDを開始しない。実行Skillsの整備も、人間による明示的な「TDD開始」を意味しない。
 

@@ -6,7 +6,8 @@
 
 PR #25をマージした最新`main`を、キャッシュを前提としないクリーンなWork環境で構築し、
 `setup-test-environment` Skillが定義する完全なEnvironment Gateを連続2回実行した。
-両方が成功し、2026-09-25に人間が現在のテスト環境を承認したため、環境構築フェーズを完了とする。
+両方が成功し、同じ構築・実行経路がClaude Codeでも成功した。2026-09-25に人間が現在の
+テスト環境を承認したため、環境構築フェーズを完了とする。
 機能TDDの開始は別の判断であり、明示的な「TDD開始」指示までは開始しない。
 
 | 項目 | 値 |
@@ -18,6 +19,7 @@ PR #25をマージした最新`main`を、キャッシュを前提としない�
 | 実行回数 | 完全なEnvironment Gateを連続2回 |
 | 結果 | 2回ともPass |
 | Environment Gate人間承認 | 承認済み（2026-09-25） |
+| Claude Code | 同じ構築・実行経路でPass |
 | PR #25後のGitHub Actions | Ubuntu/macOS host prerequisites、Backend/Frontend test・lintがPass |
 
 このSHAではmise 2026.9.12がuv 0.12.18とTemurin Java 17を管理し、uvがPython 3.14.7を
@@ -25,10 +27,9 @@ PR #25をマージした最新`main`を、キャッシュを前提としない�
 禁止し、Maven WrapperからDynamoDB Local 3.3.1を解決する。環境障害は
 `ENVIRONMENT_FAILURE`、exit 70として機能テストのRedと分離する。
 
-Claude Code固有のクラウド実行環境での再実行結果は、取得できた段階で補足証跡として追記する。
-Workの正式Gate、Pull Requestと`main`のUbuntu/macOS Actions、および人間承認が完了しているため、
-この補足確認は現在の`ENVIRONMENT_READY`と開発サイクルSkills整備をブロックしない。後日の
-Claude Code検証で環境契約上の不具合が判明した場合は、環境コードを修正してGateを再度開く。
+WorkとClaude Codeの両クラウド実行環境で共通経路が成功し、Pull Requestと`main`の
+Ubuntu/macOS Actionsも成功した。これにより、環境ごとの個別導入手順を追加せず、同じ契約を
+開発サイクルで使用できることを確認した。
 
 ## 再検証に至った変更履歴
 

@@ -16,7 +16,7 @@
 | 環境整備PR | PR #16（マージ済み）、PR #19（Maven移行）、PR #23（miseツールチェーン統一）、PR #24（mise bootstrapラッパー）、PR #25（uvによるPython管理） |
 | 対象 | ChatGPT Work、Claude Code、Pull Request Actions、`main`マージ後のAWS staging |
 | 採用DB | DynamoDB Local / AWS DynamoDB |
-| 状態 | `ENVIRONMENT_READY` / Work連続2回、Ubuntu/macOS CI、人間承認済み |
+| 状態 | `ENVIRONMENT_READY` / Work連続2回、Claude Code、Ubuntu/macOS CI、人間承認済み |
 
 ## 2. 基本方針
 
@@ -60,7 +60,8 @@ SQLiteやPostgreSQLで代替せず、Work、Claude Code、PRではAWS公式のDy
 
 ### 3.2 Baseline
 
-- 最新`main`（`c0b0e38772f91dfd789a590dfcd9f5ffcde07a45`）でEnvironment Gateが連続2回Pass
+- 最新`main`（`c0b0e38772f91dfd789a590dfcd9f5ffcde07a45`）でEnvironment GateがWork上で連続2回Pass
+- 同じ構築・実行経路がClaude CodeでもPass
 - Backend / Frontendのtest・lint・formatは最新`main`のGitHub ActionsでPass
 - Ubuntu / macOSのhost prerequisitesは最新`main`のGitHub ActionsでPass
 - Backend integration基盤、環境スモーク、fail-closed、Maven設定テストはPass
@@ -281,7 +282,7 @@ cd backend
 
 Maven Wrapper bootstrap、Maven Central解決、checksum、Java、起動、ready checkの失敗は`ENVIRONMENT_FAILURE`として扱い、Valid Redへ数えない。
 
-完了条件: **達成済み。** クリーンなWorkで共通手順を連続2回実行し、Ubuntu/macOSのActionsでもhost prerequisitesが成功した。Claude Code固有環境での結果は補足証跡として後日追記できる。
+完了条件: **達成済み。** クリーンなWorkで共通手順を連続2回実行し、同じ経路がClaude Codeでも成功した。Ubuntu/macOSのActionsでもhost prerequisitesが成功した。
 
 ### Step 2: pytest統合テスト基盤を実装する（実装・検証済み）
 
@@ -364,14 +365,14 @@ Environment Gate:
 - [x] mise / uv管理ツールチェーンでWorkのMaven・安全性・OSレベルの失敗を`ENVIRONMENT_FAILURE`として再確認
 - [x] Maven方式の検証済みSHAを記録
 - [x] 人間が更新後のEnvironment Gateを承認
-- [ ] Claude Code固有のクラウド実行結果を補足証跡として追記（非ブロッキング）
+- [x] Claude Codeで同じ構築・実行経路が成功
 
-PR #25マージ後の最新`main`で現行方式の正式Gateと人間承認が完了した。旧CloudFront方式の証跡は履歴としてのみ保持する。Claude Code固有環境の補足検証で不具合が見つかった場合はGateを再度開く。
+PR #25マージ後の最新`main`でWorkとClaude Codeの検証、Ubuntu/macOS Actions、人間承認が完了した。旧CloudFront方式の証跡は履歴としてのみ保持する。
 
 ### Step 4: TDD計画へ環境証跡を反映する
 
 - [x] Maven・mise・uv移行後の環境整備コミットSHAを記録する
-- [x] Workの正式GateとUbuntu/macOS Actionsの結果を記録する
+- [x] Work、Claude Code、Ubuntu/macOS Actionsの結果を記録する
 - [x] PR #14で記録したGAP-002の解消状況を更新する
 - [x] 環境整備とTDDテストのコミットを分離する（機能TDDテストは未作成）
 - [x] 環境整備PRをマージする
