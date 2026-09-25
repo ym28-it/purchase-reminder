@@ -274,14 +274,27 @@
 
 ## 12. Skillsとの関係
 
-この文書は開発サイクルの契約である。各工程を実行するSkillsは、この契約に従って別途整備する。
+この文書は開発サイクルの契約であり、次のSkillsを明示的に呼び出して各工程を実行する。
 
-Skillsは明示的に呼び出した場合だけ開始し、少なくとも次を満たす。
+| Skill | 役割 | 対応工程 |
+|---|---|---|
+| `orchestrate-development-cycle` | オーケストレーター | 開始条件、各Automated Gate、状態、差し戻し |
+| `prepare-feature-spec` | 仕様エージェント | Stage 0、仕様差し戻し |
+| `create-tdd-tests` | テストエージェント | Stage 1、Red差し戻し |
+| `implement-tdd-slice` | 実装エージェント | Stage 3、Green差し戻し |
+| `verify-feature-slice` | 新しいテストエージェント | Stage 5 |
+| `review-feature-slice` | 新しいレビューエージェント | Stage 7 |
+
+テスト役は同じ責務を持つが、実装前と実装後を別Skill・別コンテキストに分ける。最終レビューも新しいコンテキストで開始する。各Skillは次を守る。
 
 - 担当役割と変更可能範囲を宣言する
 - 必要な入力成果物と承認状態を検査する
 - 対象SHAと状態コードを記録する
 - 担当外の問題を修正せず、定義済みの戻り先へ返す
 - 次工程を無断で起動または承認しない
+
+オーケストレーターは `docs/templates/development-cycle-state.md` から
+`docs/specs/<feature-slug>-cycle-state.md` を作成し、会話ではなく成果物で状態と引き継ぎを管理する。
+最終レビューは `docs/templates/final-review-report.md` を使用する。
 
 テスト環境の構築・検証には既存の `setup-test-environment` Skillを使用する。これは開発サイクルの各実行Skillとは独立し、機能TDDや実装を開始しない。

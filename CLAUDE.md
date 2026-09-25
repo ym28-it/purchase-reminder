@@ -16,13 +16,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。DynamoDBの汎用モデル基盤には単体テストがあるが、purchase CRUD、services、API、frontendのテストは未整備。Cognito認証、購入タイミングのドメインロジック、通知、Terraform、デプロイ、E2Eは未実装。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
 
-### 現在の優先作業: 開発サイクル実行Skillsの整備
+### 現在の優先作業: 開発サイクルSkillsの動作確認
 
-PR #25をマージした最新`main`（`c0b0e38772f91dfd789a590dfcd9f5ffcde07a45`）を対象に、クリーンなWork環境で完全なEnvironment Gateが連続2回成功し、2026-09-25に人間承認された。mise 2026.9.12、uv 0.12.18、uv管理Python 3.14.7、Temurin Java 17、Maven Wrapper、DynamoDB Local 3.3.1を使うテスト環境は`ENVIRONMENT_READY`であり、環境構築フェーズは完了している。
+テスト環境は`ENVIRONMENT_READY`であり、Work、Claude Code、Ubuntu/macOS Actionsで共通経路を確認済みである。[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)と[Environment Gate実行証跡](docs/test-environment-gate-evidence.md)を環境契約のsource of truthとする。環境コードまたはテスト基盤を変更した場合だけ、同じGateを再実行して人間の再承認を得る。
 
-[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)と[Environment Gate実行証跡](docs/test-environment-gate-evidence.md)を環境契約のsource of truthとする。同じ構築・実行経路はClaude Codeでも成功しており、Work、Claude Code、Pull Request Actionsで再現可能である。環境コードまたはテスト基盤を変更した場合は、同じGateを再実行して人間の再承認を得る。
+[4エージェント＋オーケストレーター開発運用](docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)を実行するSkillsとして、`orchestrate-development-cycle`、`prepare-feature-spec`、`create-tdd-tests`、`implement-tdd-slice`、`verify-feature-slice`、`review-feature-slice`を使用する。状態は`docs/specs/<feature-slug>-cycle-state.md`で引き継ぎ、実装前テスト、実装、実装後テスト、最終レビューはそれぞれ独立したコンテキストで開始する。
 
-次工程は、[4エージェント＋オーケストレーター開発運用](docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)に従う実行Skillsの整備である。テスト環境の確認・修復にはClaude Codeの`/setup-test-environment`またはWorkの`$setup-test-environment`を使用するが、このSkillは機能TDDを開始しない。実行Skillsの整備も、人間による明示的な「TDD開始」を意味しない。
+次は購入物登録の既存承認済み成果物を対象に、`orchestrate-development-cycle`で開始条件と引き継ぎ形式だけを確認する。これは動作確認であり、人間による明示的な「TDD開始」指示まではテストコードやプロダクトコードを変更しない。環境の確認・修復には独立した`setup-test-environment` Skillを使用する。
 
 ## 開発分担（仕様駆動）
 
