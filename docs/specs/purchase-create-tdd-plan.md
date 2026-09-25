@@ -28,10 +28,10 @@
 | ID | 不足情報 | 影響する契約・Test Case ID | 分類 | 必要な確認 | 状態 |
 |---|---|---|---|---|---|
 | GAP-001 | 認証主体のテスト時注入方法 | PURC-CORE-003 | Important | FastAPIのdependency overrideで現在利用者を差し替える。Cognito自体は対象外とする | Resolved |
-| GAP-002 | WorkとClaude Codeで同じDynamoDB Local環境を再現する必要がある | PURC-CORE-001, PURC-CORE-003, PURC-CORE-004 | Important | PR #19のMaven Wrapper・POM・共通ランナーを両環境で連続2回検証し、Environment Gateを再承認する。証跡は`docs/test-environment-gate-evidence.md`を参照する | Reopened |
+| GAP-002 | WorkとClaude Codeで同じDynamoDB Local環境を再現する必要がある | PURC-CORE-001, PURC-CORE-003, PURC-CORE-004 | Important | 共通Maven Wrapper・POM・ランナーを使用し、最新`main`の正式Environment GateとCIを通過させる。証跡は`docs/test-environment-gate-evidence.md`を参照する | Resolved |
 | GAP-003 | Frontend buildに必要な`src/routeTree.gen`が基準コミットに存在せず、buildが失敗する | PURC-CORE-001, PURC-CORE-002 | Important | 今回のRedとは分離する。Green Gateまでに生成手順または生成物を整備し、buildを成功させる | Open |
 
-GAP-002は旧CloudFront方式では、Environment Gate検証済みSHA `2983f363565f09cf364dfd0d6ae20c7846c3cc01`で解消済みだった。PR #19で依存取得経路をMaven Centralへ変更するため再オープンし、Work・Claude Codeでの再検証と人間再承認後に再度Resolvedとする。
+GAP-002はPR #25マージ後のEnvironment Gate検証済みSHA `c0b0e38772f91dfd789a590dfcd9f5ffcde07a45`で再度Resolvedとなった。クリーンなWorkで完全なGateが連続2回成功し、同じ構築・実行経路がClaude Codeでも成功した。Ubuntu/macOSのCIと人間承認も完了している。
 テストエージェントは機能テストのRed確認前に環境スモークを実行し、失敗した場合は
 機能契約の不成立ではなく`ENVIRONMENT_FAILURE`として停止する。
 
