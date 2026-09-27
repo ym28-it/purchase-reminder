@@ -6,10 +6,10 @@
 |---|---|
 | Feature slug | `purchase-create` |
 | Base SHA | `e4f834025fc50d94ee76d8d2035655dad8ecbc4d` |
-| Current head SHA | `e4f834025fc50d94ee76d8d2035655dad8ecbc4d` |
+| Current head SHA | `669c726abd03c94426d2614da2b741c81baaf82e` (PR #30 before this state update) |
 | Environment Gate SHA | `c0b0e38772f91dfd789a590dfcd9f5ffcde07a45` |
-| Current state | `RED_VALIDATED` for PR #29 test snapshot; tests are on a separate branch |
-| Last updated | `2026-09-27T16:07:48+09:00` |
+| Current state | `TDD_GREEN` for PR #30 at the input SHA above |
+| Last updated | `2026-09-27T17:44:29+09:00` |
 
 ## Requested transition
 
@@ -27,6 +27,8 @@
 | TDD plan | `docs/specs/purchase-create-tdd-plan.md` | Test Plan Approved; the old Baseline is historical and was refreshed in the PR #29 execution record |
 | Frozen TDD tests | `backend/tests/integration/api/test_purchase_create.py`; `frontend/src/features/Purchase.test.tsx`; `frontend/src/features/CreatePurchaseDialog.test.tsx` | PR #29 head `f5643cbf787cedc58ea715bd3dab4be627f6502c`; seven planned scenarios |
 | Red execution | `docs/specs/purchase-create-tdd-execution.md` | PR #29 head `f5643cbf787cedc58ea715bd3dab4be627f6502c` |
+| Current frozen-test revision | Same three test paths | PR #29 head `15e48f6f4339874d8636b9659f58f7dd52825c10`; formatting-only change to one assertion; ancestor of PR #30 |
+| Green execution | `docs/specs/purchase-create-tdd-execution.md` | PR #30 head `669c726abd03c94426d2614da2b741c81baaf82e` |
 | Post-test report | `docs/specs/purchase-create-post-test-report.md` | Pending / absent |
 | Final review | `docs/specs/purchase-create-final-review.md` | Pending / absent |
 
@@ -89,18 +91,41 @@ The following checks apply to PR #29 input SHA `f5643cbf787cedc58ea715bd3dab4be6
 
 The feature-suite exit code 1 is intentional Valid Red. The complete command history is in `docs/specs/purchase-create-tdd-execution.md`.
 
+## PR #29 latest-head Red revalidation (2026-09-27)
+
+- Input: `15e48f6f4339874d8636b9659f58f7dd52825c10`; parent `f5643cbf787cedc58ea715bd3dab4be627f6502c`.
+- `git diff f5643cb..15e48f6 --name-status`: exactly one test file, `frontend/src/features/CreatePurchaseDialog.test.tsx`. The only edit reflows the `waitFor` assertion over multiple lines. The predicate, test case IDs, expectations, fixtures, and product code are unchanged.
+- The previously recorded backend 3 failed / 2 passed and frontend 2 failed therefore remain applicable to the same seven test scenarios. The PR #29 latest-head Actions lint workflow succeeded; its frontend Test job failed on the intentional Red tests, while backend unit and Ubuntu/macOS host prerequisites succeeded. This gate did not rerun the Red suites in the current Work environment.
+- Decision: `RED_VALIDATED` remains valid at PR #29 latest head. The new formatting has no behavioral impact. A semantic test or upstream-contract change would require another Red assessment.
+
+## PR #30 Green Gate evaluation (2026-09-27)
+
+- Input: `669c726abd03c94426d2614da2b741c81baaf82e`, PR #30 `feat/purchase-create-implementation` against latest PR #29 head. `git merge-base --is-ancestor 15e48f6 669c726` returned 0.
+- Frozen tests: `git diff --exit-code 15e48f6..669c726 -- backend/tests/integration/api/test_purchase_create.py frontend/src/features/Purchase.test.tsx frontend/src/features/CreatePurchaseDialog.test.tsx` returned 0. Approved specification, logical cases, and TDD plan were unchanged.
+- The product diff is limited to the purchase request schema, persistence of uniqueness reservations (including update/delete maintenance of those reservations), the registration form, list display, and create mutation hook. The update/delete maintenance preserves the new registration uniqueness invariant; its detailed behavior remains for independent post-implementation testing. No unrelated source or infrastructure diff was found.
+
+| Stage 4 condition | Decision / committed evidence at PR #30 head |
+|---|---|
+| Target TDD | Pass: backend 5 passed with DynamoDB Local API ready PASS; frontend 2 passed, both exit 0 |
+| Affected regression | Pass: backend unit 72 passed / 21 deselected, exit 0; integration 21 passed / 72 deselected, exit 0 and Java stopped. The GitHub Actions Test and Lint workflows for this head both succeeded |
+| Static checks and build | Pass: backend `ruff check .` and `ruff format --check .`, frontend `bun run lint`, `bun run format:check`, `bun run build` all exit 0; build includes TypeScript check and generates `routeTree.gen` (GAP-003 resolved for this gate) |
+| Frozen test integrity and change scope | Pass: exact latest PR #29 test files unchanged in PR #30; no specification/expectation changes; diff as described above |
+| Reproducible evidence | Pass: the two 2026-09-27 Green sections of `docs/specs/purchase-create-tdd-execution.md` record the commands, exit codes, counts, original formatting exception, correction, and implementation commit `c5c50981aee7d06c732dd51edf3c0ff0a22a86d4` |
+
+The implementation agent's first Green run at `c5c5098` had frontend format exit 1 due to the then-frozen test. PR #29 subsequently formatted that test, PR #30 incorporated it, and the latest-head full format check exits 0. No new TDD tests or post-implementation tests were created in this gate context.
+
 ## Automated gates
 
 | Gate | Input SHA | Commands / evidence | Result | Invalidated by |
 |---|---|---|---|---|
-| Red Gate | `f5643cbf787cedc58ea715bd3dab4be627f6502c` | PR #29 execution artifact and checks above | `RED_VALIDATED` | Frozen test or upstream contract changes require reassessment |
-| Green Gate | — | — | `Pending` | — |
+| Red Gate | `15e48f6f4339874d8636b9659f58f7dd52825c10` | Original Red commands and formatting-only diff above; PR #29 latest-head CI | `RED_VALIDATED` reaffirmed | Semantic test or upstream-contract change |
+| Green Gate | `669c726abd03c94426d2614da2b741c81baaf82e` | Green execution record, frozen diff, PR #30 Test/Lint CI above | `TDD_GREEN` | Further product/test changes require renewed evaluation |
 | Completion Gate | — | — | `Pending` | — |
 
 ## Handoff
 
-- Responsible role: independent implementation agent in a new context.
-- Next Skill: `implement-tdd-slice`; start from the frozen test commit `f5643cbf787cedc58ea715bd3dab4be627f6502c` (PR #29), not this state-only branch at `c887956e4c50c6b42f26befa17f66014741a7bcc`.
-- Allowed changes: product implementation and Green execution evidence as defined by the implementation Skill; frozen tests and approved expectations must remain unchanged. Confirm the frozen test commit is present before coding.
-- Unresolved items: PR #29 tests have not been merged into `feat/purchase-create-cycle`; resolve the branch lineage when starting implementation. GAP-003 frontend build requires resolution by Green Gate.
-- Invalidated downstream gates: none previously passed; Green Gate and Completion Gate remain pending.
+- Responsible role: independent post-implementation test agent in a new context.
+- Next Skill: `verify-feature-slice`; start from PR #30 input SHA `669c726abd03c94426d2614da2b741c81baaf82e` or this state-only successor commit and inspect all approved Test Case IDs.
+- Allowed changes: post-implementation tests, fixtures/helpers required for testing, and `docs/specs/purchase-create-post-test-report.md` under that Skill. Do not relax the frozen TDD tests or infer expectations from the implementation.
+- Unresolved items: post-implementation coverage, integration and E2E remain to be assessed; update/delete interactions with uniqueness reservations merit explicit coverage. Completion Gate remains pending.
+- Invalidated downstream gates: none previously passed; Completion Gate has not yet run.
