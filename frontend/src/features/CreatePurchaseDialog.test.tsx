@@ -28,6 +28,8 @@ test("PURC-TDD-003 (PURC-003-TC1; CORE-002): whitespace-only name shows a field 
 	await user.click(screen.getByRole("button", { name: "登録する" }));
 
 	const nameField = screen.getByLabelText("名前").parentElement;
-	await waitFor(() => expect(nameField?.querySelector("p")?.textContent).toBeTruthy());
+	await waitFor(() =>
+		expect(nameField?.querySelector("p")?.textContent).toBeTruthy(),
+	);
 	expect(createPurchase).not.toHaveBeenCalled();
 });
