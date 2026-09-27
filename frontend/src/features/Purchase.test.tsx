@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createPurchase, getAllPurchases } from "@/api/purchases";
@@ -19,6 +19,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	cleanup();
 	queryClient.clear();
 	vi.clearAllMocks();
 });
@@ -72,7 +73,6 @@ test("PURC-TDD-002 (PURC-011-TC1, 012-TC1, 004-TC12; CORE-001/002): zero-speed c
 	expect(item).toHaveTextContent(/在庫\s*2/);
 });
 
-
 test("PURC-012-TC2/3: temporary badge appears only for temporary purchases", async () => {
 	const temporary = {
 		id: "aef5de6b-046d-48d2-a84b-df6c989643d0",
@@ -98,7 +98,9 @@ test("PURC-012-TC2/3: temporary badge appears only for temporary purchases", asy
 		</QueryClientProvider>,
 	);
 
-	const temporaryItem = (await screen.findByText("旅行用シャンプー")).closest("li");
+	const temporaryItem = (await screen.findByText("旅行用シャンプー")).closest(
+		"li",
+	);
 	const regularItem = screen.getByText("牛乳").closest("li");
 	expect(temporaryItem).toHaveTextContent("一時的");
 	expect(regularItem).not.toHaveTextContent("一時的");
