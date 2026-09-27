@@ -208,7 +208,8 @@ def test_post_exact_match_rules_allow_distinct_values(
 ) -> None:
     """PURC-014-TC3/4/5/6."""
     as_user("user-a")
-    original = valid_purchase(name="Milk" if overrides.get("name") in {"milk", "Ｍｉｌｋ"} else "牛乳")
+    original_name = "Milk" if overrides.get("name") in {"milk", "Ｍｉｌｋ"} else "牛乳"
+    original = valid_purchase(name=original_name)
     assert client.post("/purchases", json=original).status_code == 201
     assert client.post("/purchases", json=valid_purchase(**overrides)).status_code == 201
     assert len(purchases(client)) == 2
