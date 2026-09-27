@@ -1,4 +1,4 @@
-"""Approved purchase-create TDD scenarios (PURC-TDD-001, 004–007)."""
+"""Approved purchase-create TDD scenarios plus post-implementation coverage."""
 
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -113,3 +113,138 @@ def test_purc_tdd_007_identical_names_are_allowed_for_different_users(
     assert [purchase["id"] for purchase in purchases(client)] == [second.json()["id"]]
     as_user("user-a")
     assert [purchase["id"] for purchase in purchases(client)] == [first.json()["id"]]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "field"),
+    [
+        ({"category": "   "}, "category"),
+        ({"name": "x" * 51}, "name"),
+        ({"category": "x" * 31}, "category"),
+        ({"speed": -1}, "speed"),
+        ({"speed": 1.5}, "speed"),
+        ({"speed": 100001}, "speed"),
+        ({"stock": -1}, "stock"),
+        ({"stock": 1.5}, "stock"),
+        ({"stock": 100001}, "stock"),
+    ],
+)
+def test_post_invalid_inputs_are_rejected_without_storage(
+    client: TestClient, overrides: dict[str, object], field: str
+) -> None:
+    """PURC-003-TC2, PURC-004-TC2/4/6/8/10."""
+    as_user("user-a")
+    response = client.post("/purchases", json=valid_purchase(**overrides))
+    assert response.status_code == 422
+    assert field in str(response.json()).lower()
+    assert purchases(client) == []
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"name": "x" * 50},
+        {"category": "x" * 30},
+        {"speed": 100000},
+        {"stock": 0},
+        {"stock": 100000},
+        {"speed": 0, "is_temporary": True},
+    ],
+)
+def test_post_boundary_inputs_are_accepted(
+    client: TestClient, overrides: dict[str, object]
+) -> None:
+    """PURC-004-TC3/5/7/9/11."""
+    as_user("user-a")
+    response = client.post("/purchases", json=valid_purchase(**overrides))
+    assert response.status_code == 201
+    assert len(purchases(client)) == 1
+
+
+def test_post_missing_required_field_is_rejected(client: TestClient) -> None:
+    """PURC-003-TC3."""
+    as_user("user-a")
+    payload = valid_purchase()
+    del payload["name"]
+    response = client.post("/purchases", json=payload)
+    assert response.status_code == 422
+    assert "name" in str(response.json()).lower()
+    assert purchases(client) == []
+
+
+def test_post_two_creates_get_distinct_system_ids(client: TestClient) -> None:
+    """PURC-006-TC2."""
+    as_user("user-a")
+    first = client.post("/purchases", json=valid_purchase())
+    second = client.post("/purchases", json=valid_purchase(name="卵"))
+    assert first.status_code == second.status_code == 201
+    assert first.json()["id"] != second.json()["id"]
+
+
+def test_post_duplicate_ignores_non_key_fields(client: TestClient) -> None:
+    """PURC-014-TC1/2."""
+    as_user("user-a")
+    assert client.post("/purchases", json=valid_purchase()).status_code == 201
+    duplicate = client.post(
+        "/purchases",
+        json=valid_purchase(speed=9, stock=99, is_temporary=True),
+    )
+    assert duplicate.status_code == 409
+    assert len(purchases(client)) == 1
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"category": "飲料"},
+        {"name": "低脂肪乳"},
+        {"name": " 牛乳 "},
+        {"name": "milk"},
+        {"name": "Ｍｉｌｋ"},
+    ],
+)
+def test_post_exact_match_rules_allow_distinct_values(
+    client: TestClient, overrides: dict[str, object]
+) -> None:
+    """PURC-014-TC3/4/5/6."""
+    as_user("user-a")
+    original = valid_purchase(name="Milk" if overrides["name"] in {"milk", "Ｍｉｌｋ"} else "牛乳")
+    assert client.post("/purchases", json=original).status_code == 201
+    assert client.post("/purchases", json=valid_purchase(**overrides)).status_code == 201
+    assert len(purchases(client)) == 2
+
+
+def test_post_update_releases_old_unique_reservation(client: TestClient) -> None:
+    """IMPL-RISK-001: updating a purchase must not permanently block its old exact pair."""
+    as_user("user-a")
+    created = client.post("/purchases", json=valid_purchase()).json()
+    updated = client.put(
+        f'/purchases/{created["id"]}',
+        json=valid_purchase(name="低脂肪乳"),
+    )
+    assert updated.status_code == 200
+    recreated = client.post("/purchases", json=valid_purchase())
+    assert recreated.status_code == 201
+
+
+def test_post_update_cannot_take_an_existing_unique_pair(client: TestClient) -> None:
+    """IMPL-RISK-002: update must preserve the same uniqueness invariant as create."""
+    as_user("user-a")
+    first = client.post("/purchases", json=valid_purchase()).json()
+    second = client.post("/purchases", json=valid_purchase(name="卵")).json()
+    conflict = client.put(
+        f'/purchases/{second["id"]}',
+        json=valid_purchase(name=first["name"], category=first["category"]),
+    )
+    assert conflict.status_code == 409
+    assert len(purchases(client)) == 2
+
+
+def test_post_delete_releases_unique_reservation(client: TestClient) -> None:
+    """IMPL-RISK-003: deleting a purchase must allow the exact pair to be created again."""
+    as_user("user-a")
+    created = client.post("/purchases", json=valid_purchase()).json()
+    deleted = client.delete(f'/purchases/{created["id"]}')
+    assert deleted.status_code == 204
+    recreated = client.post("/purchases", json=valid_purchase())
+    assert recreated.status_code == 201
