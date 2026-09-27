@@ -140,3 +140,19 @@ test("PURC-017-TC1/2, PURC-018-TC1/2: generic failure is safe, not retried, and 
 	await user.click(screen.getByRole("button", { name: "登録する" }));
 	await waitFor(() => expect(createPurchase).toHaveBeenCalledTimes(2));
 });
+
+
+test("PURC-013-TC1: submit is disabled while the create request is pending", async () => {
+	const user = userEvent.setup();
+	renderDialog();
+	vi.mocked(createPurchase).mockImplementation(
+		() => new Promise(() => undefined),
+	);
+	await fillValidForm(user);
+	const submit = screen.getByRole("button", { name: "登録する" });
+	await user.click(submit);
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "登録中..." })).toBeDisabled(),
+	);
+	expect(createPurchase).toHaveBeenCalledTimes(1);
+});
