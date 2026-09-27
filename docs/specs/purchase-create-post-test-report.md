@@ -94,9 +94,9 @@ Frontendの登録フォームが5項目を検証してcreate APIを呼び、成�
 | PURC-010-TC1/2 | Component | success closes/resets | Not run | |
 | PURC-011-TC1 | TDD | PURC-TDD-002 | Pass (Green evidence) | |
 | PURC-012-TC1 | TDD | PURC-TDD-002 | Pass (Green evidence) | |
-| PURC-012-TC2/3 | 既存画面 + Component候補 | Purchase表示 | Not run | post-testで追加検証が必要 |
+| PURC-012-TC2/3 | Component | Purchase temporary badge test | Not run | |
 | PURC-012-TC4 | Component候補 | 成功UI | Not run | post-testで追加検証が必要 |
-| PURC-013-TC1 | Component候補 | pending button | Not run | post-testで追加検証が必要 |
+| PURC-013-TC1 | Component | pending create button test | Not run | |
 | PURC-013-TC2 | E2E | Deferred | Not run | E2E harness/auth fixture未整備 |
 | PURC-014-TC1〜6 | Integration | duplicate/exact-match tests | Not run | |
 | PURC-014-TC7/8 | TDD | PURC-TDD-007/006 | Pass (Green evidence) | |
@@ -128,7 +128,7 @@ Frontendの登録フォームが5項目を検証してcreate APIを呼び、成�
 |---|---|---|---|
 | 実装後テストの実行 | このGitHub編集コンテキストには任意コマンド実行環境がない | 追加テストのGreenは未確認 | PR CIおよび実行可能なWork環境で検証 |
 | PURC-009-TC2 / 013-TC2 E2E | Playwright harnessと認証fixture未整備 | ブラウザからDBまでの完全経路は未検証 | E2E基盤整備後に実施 |
-| PURC-012-TC2/3/4, 013-TC1 | 追加テスト未実装 | UI表示・pending状態の一部が未検証 | 同PRで追加するかCompletion Gateで差し戻し |
+| PURC-012-TC4 | 成功トーストの専用実装が存在しないため専用テスト未追加 | 将来トースト追加時の回帰余地 | 最終レビューで差分確認し、必要なら専用テスト追加 |
 
 ## Slice Complete Gate
 
