@@ -34,3 +34,8 @@ quote-style = "double"
 include = ["app", "tests"]
 venvPath = "."
 venv = ".venv"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+]
