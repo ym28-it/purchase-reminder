@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { createPurchase } from "@/api/purchases";
@@ -9,6 +9,7 @@ import { CreatePurchaseDialog } from "@/features/CreatePurchaseDialog";
 vi.mock("@/api/purchases", () => ({ createPurchase: vi.fn() }));
 
 afterEach(() => {
+	cleanup();
 	queryClient.clear();
 	vi.clearAllMocks();
 });
@@ -66,17 +67,22 @@ test.each([
 	["現在の在庫", "-1"],
 	["現在の在庫", "1.5"],
 	["現在の在庫", "100001"],
-])("PURC-003-TC1/PURC-004: invalid %s is blocked client-side", async (label, value) => {
-	const user = userEvent.setup();
-	renderDialog();
-	await fillValidForm(user);
-	const field = screen.getByLabelText(label);
-	await user.clear(field);
-	await user.type(field, value);
-	await user.click(screen.getByRole("button", { name: "登録する" }));
-	await waitFor(() => expect(field.parentElement?.querySelector("p")).not.toBeNull());
-	expect(createPurchase).not.toHaveBeenCalled();
-});
+])(
+	"PURC-003-TC1/PURC-004: invalid %s is blocked client-side",
+	async (label, value) => {
+		const user = userEvent.setup();
+		renderDialog();
+		await fillValidForm(user);
+		const field = screen.getByLabelText(label);
+		await user.clear(field);
+		await user.type(field, value);
+		await user.click(screen.getByRole("button", { name: "登録する" }));
+		await waitFor(() =>
+			expect(field.parentElement?.querySelector("p")).not.toBeNull(),
+		);
+		expect(createPurchase).not.toHaveBeenCalled();
+	},
+);
 
 test("PURC-010-TC1/2: success closes the dialog and resets values", async () => {
 	const user = userEvent.setup();
@@ -108,7 +114,9 @@ test("PURC-015-TC1/PURC-016-TC1: duplicate error keeps input and identifies dupl
 	});
 	await fillValidForm(user);
 	await user.click(screen.getByRole("button", { name: "登録する" }));
-	expect(await screen.findByText("同じ名前とカテゴリの購入物は既に存在します")).toBeInTheDocument();
+	expect(
+		await screen.findByText("同じ名前とカテゴリの購入物は既に存在します"),
+	).toBeInTheDocument();
 	expect(onOpenChange).not.toHaveBeenCalledWith(false);
 	expect(screen.getByLabelText("名前")).toHaveValue("牛乳");
 	expect(screen.getByLabelText("カテゴリ")).toHaveValue("食品");
@@ -140,7 +148,6 @@ test("PURC-017-TC1/2, PURC-018-TC1/2: generic failure is safe, not retried, and 
 	await user.click(screen.getByRole("button", { name: "登録する" }));
 	await waitFor(() => expect(createPurchase).toHaveBeenCalledTimes(2));
 });
-
 
 test("PURC-013-TC1: submit is disabled while the create request is pending", async () => {
 	const user = userEvent.setup();
