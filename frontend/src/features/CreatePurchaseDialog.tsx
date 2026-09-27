@@ -14,10 +14,26 @@ import { Label } from "@/components/ui/label";
 import { useCreatePurchase } from "@/hooks/usePurchases";
 
 const createPurchaseFormSchema = z.object({
-	name: z.string().min(1, "名前を入力してください"),
-	category: z.string().min(1, "カテゴリを入力してください"),
-	speed: z.coerce.number().positive("0より大きい値を入力してください"),
-	stock: z.coerce.number().min(0, "0以上を入力してください"),
+	name: z
+		.string()
+		.min(1, "名前を入力してください")
+		.max(50, "50文字以内で入力してください")
+		.refine((value) => value.trim().length > 0, "名前を入力してください"),
+	category: z
+		.string()
+		.min(1, "カテゴリを入力してください")
+		.max(30, "30文字以内で入力してください")
+		.refine((value) => value.trim().length > 0, "カテゴリを入力してください"),
+	speed: z.coerce
+		.number()
+		.int("整数を入力してください")
+		.min(0, "0以上を入力してください")
+		.max(100000, "100000以下を入力してください"),
+	stock: z.coerce
+		.number()
+		.int("整数を入力してください")
+		.min(0, "0以上を入力してください")
+		.max(100000, "100000以下を入力してください"),
 	isTemporary: z.boolean(),
 });
 
@@ -44,6 +60,12 @@ export function CreatePurchaseDialog({
 		},
 	});
 	const createPurchase = useCreatePurchase();
+	const duplicateError =
+		createPurchase.error &&
+		typeof createPurchase.error === "object" &&
+		"detail" in createPurchase.error &&
+		createPurchase.error.detail ===
+			"同じ名前とカテゴリの購入物は既に存在します";
 
 	const onSubmit = handleSubmit((values) => {
 		createPurchase.mutate(
@@ -127,7 +149,11 @@ export function CreatePurchaseDialog({
 					</label>
 
 					{createPurchase.isError && (
-						<p className="text-destructive text-sm">登録に失敗しました</p>
+						<p className="text-destructive text-sm">
+							{duplicateError
+								? "同じ名前とカテゴリの購入物は既に存在します"
+								: "登録に失敗しました"}
+						</p>
 					)}
 
 					<DialogFooter>

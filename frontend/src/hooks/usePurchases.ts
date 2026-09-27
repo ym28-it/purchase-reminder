@@ -3,6 +3,7 @@ import {
 	createPurchase,
 	deletePurchase,
 	getAllPurchases,
+	type PurchaseCreateRequest,
 	type PurchasePutRequest,
 	putPurchase,
 } from "@/api/purchases";
@@ -10,7 +11,7 @@ import { queryClient } from "@/api/queryClient";
 
 export function useCreatePurchase() {
 	return useMutation({
-		mutationFn: createPurchase,
+		mutationFn: (input: PurchaseCreateRequest) => createPurchase(input),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["purchases"] });
 		},
