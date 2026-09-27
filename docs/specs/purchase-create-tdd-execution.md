@@ -49,3 +49,37 @@
 凍結候補のテストパス: `backend/tests/integration/api/test_purchase_create.py`、`frontend/src/features/Purchase.test.tsx`、`frontend/src/features/CreatePurchaseDialog.test.tsx`。BackendのTestClient用に `backend/pyproject.toml` と `backend/uv.lock` へ開発用 `httpx` を追加。その他は本記録のみ。プロダクトコード、承認済み期待結果・仕様・計画は変更していない。commit、push、PR作成は行っていない。
 
 この記録はテスト担当からオーケストレーターへの証跡であり、担当者自身による `RED_VALIDATED` 宣言ではない。
+
+## 実装担当からのGreen実行記録（2026-09-27）
+
+- 入力: draft PR #29 `f5643cbf787cedc58ea715bd3dab4be627f6502c`。Red Gate判定記録 `3c2dc1489b0d6e7c883bc3e957500d3fb20e582b` を実装ブランチへ取り込み、状態 `RED_VALIDATED` を確認した。
+- プロダクト実装コミット: `c5c50981aee7d06c732dd51edf3c0ff0a22a86d4`。変更範囲はBackend登録入力スキーマとDynamoDBの一意性確保、Frontend登録フォーム・一覧表示・API呼び出し。名前とカテゴリの文字列は保存時に変更しない。
+- 凍結テスト3ファイルは `git diff f5643cb -- backend/tests/integration/api/test_purchase_create.py frontend/src/features/Purchase.test.tsx frontend/src/features/CreatePurchaseDialog.test.tsx` で差分なし。仕様・論理テストケース・TDD計画も変更なし。
+
+| 実行（各ディレクトリから `../bin/mise exec --`） | 終了コード | 結果 |
+|---|---:|---|
+| Backend `uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest tests/integration/api/test_purchase_create.py -q --tb=short` | 0 | API ready PASS、TDD 5 passed、Java正常停止 |
+| Frontend `bun run test --run src/features/Purchase.test.tsx src/features/CreatePurchaseDialog.test.tsx --reporter=dot` | 0 | TDD 2 passed |
+| Backend `uv run pytest -m 'not integration' -q` | 0 | 72 passed、21 deselected |
+| Backend `uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest -m integration -q --tb=short` | 0 | API ready PASS、21 passed、72 deselected、Java正常停止 |
+| Backend `uv run ruff check .` / `uv run ruff format --check .` | 0 / 0 | 全対象成功 |
+| Frontend `bun run lint` / `bun run build` | 0 / 0 | lint、TypeScriptチェック、Vite build成功。`routeTree.gen` はビルド時に生成された |
+| Frontend `bunx biome format src/features/CreatePurchaseDialog.tsx src/features/Purchase.tsx src/hooks/usePurchases.ts` | 0 | 変更したプロダクト3ファイル成功 |
+| Frontend `bun run format:check` | 1 | PR #29で凍結された `src/features/CreatePurchaseDialog.test.tsx` の既存の1行に整形差分。プロダクト2ファイルの整形は修正済み。凍結テストは実装担当の変更境界により未変更 |
+
+上記は実装担当のGreen証跡であり、Automated Green Gateの判定や `TDD_GREEN` への状態遷移ではない。全体formatの例外はオーケストレーター／テスト担当へ差し戻す。実装後テストと完了判定は未実施。
+
+## PR #29の整形修正後の再検証（2026-09-27）
+
+- PR #29の新しいhead: `15e48f6f4339874d8636b9659f58f7dd52825c10`。追加コミットは `frontend/src/features/CreatePurchaseDialog.test.tsx` のアサーションを変えない整形だけ。PR #30の実装内容にこのテスト版を取り込み、上記のformat例外が解消した。
+- 対象実装: `c5c50981aee7d06c732dd51edf3c0ff0a22a86d4`。PR #29の新headとPR #30の旧headを親とする統合コミット: `1cb12a90fc903da0b0ca7f8172791deb2870a660`。この版で以下を実行した。
+
+| 実行（各ディレクトリから `../bin/mise exec --`） | 終了コード | 結果 |
+|---|---:|---|
+| Backend `uv run pytest -m 'not integration' -q` | 0 | 72 passed、21 deselected |
+| Backend `uv run ruff check .` / `uv run ruff format --check .` | 0 / 0 | 全対象成功 |
+| Backend `uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest -m integration -q --tb=short` | 0 | API ready PASS、21 passed（対象TDD 5件を含む）、72 deselected、Java正常停止 |
+| Frontend `bun run test --run src/features/Purchase.test.tsx src/features/CreatePurchaseDialog.test.tsx --reporter=dot` | 0 | 対象TDD 2 passed |
+| Frontend `bun run lint` / `bun run format:check` / `bun run build` | 0 / 0 / 0 | 全体lint・format、TypeScriptチェック、Vite build成功 |
+
+前節のformat失敗は修正前コミットに対する履歴。実装担当は修正版の凍結テストを変更せず受け取り、Green Gate判定はオーケストレーターに委ねる。
