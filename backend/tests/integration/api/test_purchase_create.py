@@ -220,7 +220,7 @@ def test_post_update_releases_old_unique_reservation(client: TestClient) -> None
     as_user("user-a")
     created = client.post("/purchases", json=valid_purchase()).json()
     updated = client.put(
-        f'/purchases/{created["id"]}',
+        f"/purchases/{created['id']}",
         json=valid_purchase(name="低脂肪乳"),
     )
     assert updated.status_code == 200
@@ -234,7 +234,7 @@ def test_post_update_cannot_take_an_existing_unique_pair(client: TestClient) -> 
     first = client.post("/purchases", json=valid_purchase()).json()
     second = client.post("/purchases", json=valid_purchase(name="卵")).json()
     conflict = client.put(
-        f'/purchases/{second["id"]}',
+        f"/purchases/{second['id']}",
         json=valid_purchase(name=first["name"], category=first["category"]),
     )
     assert conflict.status_code == 409
@@ -245,7 +245,7 @@ def test_post_delete_releases_unique_reservation(client: TestClient) -> None:
     """IMPL-RISK-003: deleting a purchase must allow the exact pair to be created again."""
     as_user("user-a")
     created = client.post("/purchases", json=valid_purchase()).json()
-    deleted = client.delete(f'/purchases/{created["id"]}')
+    deleted = client.delete(f"/purchases/{created['id']}")
     assert deleted.status_code == 204
     recreated = client.post("/purchases", json=valid_purchase())
     assert recreated.status_code == 201
