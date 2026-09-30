@@ -1,5 +1,7 @@
 # Development Cycle State: purchase-create
 
+> **履歴:** 旧4エージェント運用（2026-09-30に廃止）で記録したRed / Green Gateの証跡。以後の工程は`docs/TDD-WORKFLOW.md`（superpowers連携）に従い、この状態ファイルは更新しない。
+
 ## Identity
 
 | Field | Value |
