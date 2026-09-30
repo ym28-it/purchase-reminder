@@ -386,21 +386,16 @@ Steps 0〜4は完了した。購入物登録TDDテストコードは、人間に
 
 ## 7. TDD開始後
 
-Environment Gateと人間承認は完了済みである。次に開発サイクル実行Skillsを整備し、その後の人間による明示的な「TDD開始」を起点として、[4エージェント＋オーケストレーター開発運用](../FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)を開始する。
+Environment Gateと人間承認は完了済みである。開発ワークフロー全体はsuperpowersが制御し、TDD部分だけを[TDDワークフロー（superpowers連携）](../TDD-WORKFLOW.md)の独自制御で行う。購入物登録は仕様、論理テストケース、中心的契約、TDD計画が承認済みのため、`superpowers:writing-plans`から再開する。
 
-1. 仕様エージェントの承認済み仕様、論理テストケース、中心的契約、TDD計画を入力として固定する
-2. 新しいテストエージェントが承認済み最小TDDセットをテストコードへ変換する
-3. 環境スモークを実行し、Greenを確認する
-4. TDD対象テストのRedと承認済みRed例外を記録する
-5. オーケストレーターがAutomated Red Gateを判定する
-6. 新しい実装エージェントが凍結済みテストを変更せず実装する
-7. オーケストレーターがAutomated Green Gateを判定する
-8. 実装時の会話を引き継がない新しいテストエージェントが実装後テストを作成・実行する
-9. オーケストレーターがCompletion Gateを判定する
-10. 新しいレビューエージェントが仕様、テスト、実装、証跡を統合的に確認する
-11. 人間がSlice Completeを最終判断する
+1. 承認済み仕様、論理テストケース、TDD計画を入力として`superpowers:writing-plans`で実装計画を作成する（Redタスク、Greenタスク、最後の検証タスクを含む）
+2. 人間が実装計画を承認し、実行方式を選択する（TDD開始指示）
+3. Redタスク: `create-tdd-tests`で環境スモークを実行し、承認済み最小TDDセットをテストコードへ変換してValid Redと凍結ファイルを記録する
+4. Greenタスク: `implement-tdd-slice`で凍結済みテストを変更せず実装し、Greenを記録する
+5. 検証タスク: 新しいコンテキストの`verify-feature-slice`で実装後テストを作成・実行し、Completion Gateを判定する
+6. superpowersの最終コードレビュー、`verification-before-completion`、`finishing-a-development-branch`を経て、人間がSlice Completeを判断する
 
-環境スモークが失敗した場合は`ENVIRONMENT_FAILURE`で停止する。機能テストの失敗と混在させない。仕様上の問題は仕様エージェント、テスト上の問題はテストエージェント、実装上の問題は実装エージェントへ戻し、影響するGate以降を再実行する。
+環境スモークが失敗した場合は`ENVIRONMENT_FAILURE`で停止する。機能テストの失敗と混在させない。仕様上の問題は人間と仕様へ、テスト上の問題はRedタスクへ、実装上の問題はGreenタスクへ戻し、影響するGate以降を再実行する。
 
 ## 8. Pull Request Actionsへの展開
 
@@ -507,14 +502,14 @@ test: complete purchase creation post-implementation verification
 
 ### 次の準備
 
-9. [x] 4エージェント＋オーケストレーターの各工程を実行するSkills
-10. [ ] 新しいコンテキストでオーケストレーターの開始条件・成果物引き継ぎを動作確認
+9. [x] 開発サイクル実行Skills（その後、superpowers連携へ再編）
+10. [ ] superpowersを有効化し、`superpowers:writing-plans`で購入物登録の実装計画を作成・承認
 
 ### TDD開始後
 
 11. 承認済み購入物登録TDDテストとValid Red
 12. 購入物登録の垂直スライス実装とTDD Green
-13. 実装後テスト、代表E2E、独立した最終レビュー
+13. 実装後テスト、代表E2E、superpowersの最終コードレビュー
 14. GitHub Actions integration / E2E
 
 ### 後続
@@ -539,7 +534,8 @@ test: complete purchase creation post-implementation verification
 - [x] mise / uv管理ツールチェーンを含むMaven方式のEnvironment Gate検証済みSHAを記録
 - [x] 人間がMaven方式のEnvironment Gateを再承認
 - [x] 開発サイクル実行Skillsを整備・検証
-- [ ] 新しいコンテキストでオーケストレーターの開始条件・引き継ぎを確認
-- [ ] 人間が「TDD開始」を指示
+- [x] 開発ワークフローをsuperpowers制御＋独自TDD制御へ再編
+- [ ] superpowersの実装計画を作成
+- [ ] 人間が実装計画を承認し、実行方式を選択（TDD開始指示）
 
-Environment Gateと開発サイクル実行Skillsの整備は完了済みである。新しいコンテキストでオーケストレーターの開始条件と成果物引き継ぎを確認し、その後に人間が明示的な「TDD開始」を指示するまで、購入物登録のTDDテスト作成へ進まない。
+Environment Gateと開発サイクル実行Skillsの整備は完了済みである。`superpowers:writing-plans`で購入物登録の実装計画を作成し、人間が承認して実行方式を選択するまで、購入物登録のTDDテスト作成へ進まない。

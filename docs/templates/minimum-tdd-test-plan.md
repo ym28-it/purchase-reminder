@@ -129,11 +129,20 @@ Baselineは、Core Contract Gate通過後、最初のテストコードまたは
 |---|---|---|---|---|
 |  |  |  | Yes / No / 例外 |  |
 
+- 実装計画のRedタスク:
+- 環境スモーク・Baselineの結果:
+- 凍結したテストファイル:
+- Red記録コミットSHA:
+
 ### Green
 
 | Test Case ID | 実行コマンド | 結果 |
 |---|---|---|
 |  |  | Pass / Fail |
+
+- 実装計画のGreenタスク:
+- 凍結済みテストの差分確認（`git diff <Red記録SHA> -- <凍結ファイル>`）:
+- Green記録コミットSHA:
 
 ### Refactor・回帰
 
@@ -145,6 +154,7 @@ Baselineは、Core Contract Gate通過後、最初のテストコードまたは
 
 - [ ] Valid Redを確認した、または正当なRed例外を記録した
 - [ ] テストを緩和せずGreenになった
+- [ ] 凍結済みTDDテストがRed記録時から変更されていない
 - [ ] 承認済みの最小TDDテストがリファクタ後もGreenである
 - [ ] Contract ID、仕様ID、Test Case IDの対応を維持した
 - [ ] TDD候補外のTest Case IDを実装後テストへ引き継いだ

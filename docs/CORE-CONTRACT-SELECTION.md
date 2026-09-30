@@ -81,7 +81,7 @@ AIはテスト本数を先に決めて候補を切り捨てない。契約を先
 
 ## 8. 成果物
 
-選定結果は独立した中心的契約ファイルを作らず、[最小TDDテスト計画テンプレート](./templates/minimum-tdd-test-plan.md)から作る `docs/specs/<feature-slug>-tdd-plan.md` の中心的契約セクションへ記録する。
+選定結果は独立した中心的契約ファイルを作らず、[最小TDDテスト計画テンプレート](./templates/minimum-tdd-test-plan.md)から作るTDD計画（`docs/superpowers/specs/YYYY-MM-DD-<topic>-tdd-plan.md`）の中心的契約セクションへ記録する。
 
 これにより、機能ごとのテスト成果物を次の3ファイルに保つ。
 

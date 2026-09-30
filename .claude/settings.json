@@ -1,4 +1,7 @@
 {
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true
+  },
   "skillOverrides": {
     "setup-test-environment": "user-invocable-only"
   }
