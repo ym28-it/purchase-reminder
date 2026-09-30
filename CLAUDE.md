@@ -14,75 +14,52 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。DynamoDBの汎用モデル基盤には単体テストがあるが、purchase CRUD、services、API、frontendのテストは未整備。Cognito認証、購入タイミングのドメインロジック、通知、Terraform、デプロイ、E2Eは未実装。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
+ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。DynamoDBの汎用モデル基盤には単体テストがあるが、purchase CRUD、services、API、frontendのテストは未整備。Cognito認証、購入タイミングのドメインロジック、通知、Terraform、デプロイ、E2Eは未実装。開発ワークフローはsuperpowersへ移行し、TDD部分だけを独自制御としている。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
 
-### 現在の優先作業: 開発サイクルSkillsの動作確認
+### 現在の優先作業: superpowersで購入物登録の実装計画を作成
 
-テスト環境は`ENVIRONMENT_READY`であり、Work、Claude Code、Ubuntu/macOS Actionsで共通経路を確認済みである。[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)と[Environment Gate実行証跡](docs/test-environment-gate-evidence.md)を環境契約のsource of truthとする。環境コードまたはテスト基盤を変更した場合だけ、同じGateを再実行して人間の再承認を得る。
+テスト環境は`ENVIRONMENT_READY`であり、Work、Claude Code、Ubuntu/macOS Actionsで共通経路を確認済みである。[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)と[Environment Gate実行証跡](docs/test-environment-gate-evidence.md)を環境契約のsource of truthとする。環境コードまたはテスト基盤を変更した場合だけ、同じGateを再実行して人間の再承認を得る。環境の確認・修復には独立した`setup-test-environment` Skillを使用する。
 
-[4エージェント＋オーケストレーター開発運用](docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md)を実行するSkillsとして、`orchestrate-development-cycle`、`prepare-feature-spec`、`create-tdd-tests`、`implement-tdd-slice`、`verify-feature-slice`、`review-feature-slice`を使用する。状態は`docs/specs/<feature-slug>-cycle-state.md`で引き継ぎ、実装前テスト、実装、実装後テスト、最終レビューはそれぞれ独立したコンテキストで開始する。
+購入物登録（`docs/specs/purchase-create*.md`）は仕様、論理テストケース、中心的契約、最小TDD計画が承認済みである。次は`superpowers:writing-plans`で、この承認済み成果物を入力とした実装計画を作成する。人間が計画を承認して実行方式を選択するまで、テストコードやプロダクトコードを変更しない。
 
-次は購入物登録の既存承認済み成果物を対象に、`orchestrate-development-cycle`で開始条件と引き継ぎ形式だけを確認する。これは動作確認であり、人間による明示的な「TDD開始」指示まではテストコードやプロダクトコードを変更しない。環境の確認・修復には独立した`setup-test-environment` Skillを使用する。
+## 開発ワークフロー（superpowers＋独自TDD）
 
-## 開発分担（仕様駆動）
+開発ワークフロー全体は[superpowers](https://github.com/obra/superpowers)プラグイン（`.claude/settings.json`で有効化）が制御する。TDDとテストに関わる部分だけを、[TDDワークフロー（superpowers連携）](docs/TDD-WORKFLOW.md)の独自制御に置き換える。
 
-このプロジェクトでは、実装レイヤーごとに人間とAIの担当を分けない。人間とAIが共同でMarkdown形式の仕様を確定し、AIがその仕様を根拠として、すべてのテストコード・アプリケーションコード・インフラコードを実装する。
+```
+superpowers:brainstorming → [独自] design-tdd-tests → superpowers:writing-plans
+  → superpowers:subagent-driven-development（Red: create-tdd-tests / Green: implement-tdd-slice / 検証: verify-feature-slice）
+  → superpowers 最終コードレビュー → verification-before-completion → finishing-a-development-branch
+```
 
-### 基本原則
+### superpowersより優先する規則
 
-- 機能仕様は `docs/specs/<feature-slug>.md` をsource of truthとする
-- 人間とAIが仕様を共同作成し、人間が最終承認する
+このファイルと`docs/TDD-WORKFLOW.md`はsuperpowersのSkillより優先する。
+
+- `superpowers:test-driven-development`は使わない。superpowersのSkillがTDDを指示した場合は`docs/TDD-WORKFLOW.md`と独自Skills（`design-tdd-tests`、`create-tdd-tests`、`implement-tdd-slice`、`verify-feature-slice`）を適用する。実装前テストはTDD計画で承認した中心的契約だけとし、網羅は実装後テストで行う
+- 仕様・論理テストケース・期待結果・凍結済みTDDテストに関わる判断は、`subagent-driven-development`のRulingで決めない。仕様から一意に導けない場合は停止して人間へ戻す
+- Valid Red記録後のTDDテストは凍結し、実装やレビュー指摘の修正のために変更しない
+- 仕様（brainstormingのdesign doc）では各要件に`<PREFIX>-<3桁連番>`の仕様IDを付け、確認事項をBlocking / Important / Deferredに分類してBlockingを0件にしてから承認する
+- 新しいユーザー価値は最小垂直スライス（入力から最終的な出力・永続状態まで観測でき、単独で検証・リリースできる最小の機能単位）で進める。フロントエンド全体の後にバックエンド全体を作るような水平分割はしない。既存APIで価値が完結するならフロントエンドだけの変更でもよい
+
+### 成果物の配置
+
+- 仕様: `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`（superpowers既定）
+- 論理テストケース: `docs/superpowers/specs/YYYY-MM-DD-<topic>-test-cases.md`
+- TDD計画: `docs/superpowers/specs/YYYY-MM-DD-<topic>-tdd-plan.md`（[テンプレート](docs/templates/minimum-tdd-test-plan.md)）
+- 実装計画: `docs/superpowers/plans/YYYY-MM-DD-<topic>.md`（superpowers既定）
+- 実装後テストレポート: `docs/superpowers/specs/YYYY-MM-DD-<topic>-post-test-report.md`（[テンプレート](docs/templates/post-implementation-test-report.md)）
+- superpowers導入前の購入物登録は`docs/specs/purchase-create*.md`に置いたまま同じ契約で扱う
+
+### 人間とAIの分担
+
+- 人間は機能の目的・要求・制約を提示し、仕様、論理テストケース、中心的契約、TDD計画、実装計画を承認し、最終レビューと証跡を確認してマージ（Slice Complete）を判断する
 - AIは仕様の曖昧さ・矛盾・不足を指摘し、判断が必要な項目を勝手に補完しない
-- 仕様書の「確認事項」が解消されるまで、AIはその機能のテスト・実装を開始しない
-- AIは承認済み仕様から論理テストケースを作成し、人間の確認後にテストコードへ翻訳する
-- AIはdomain / services / auth / frontend / infrastructureを含む、すべてのレイヤーを実装する
-- 人間は実装コードを直接担当するのではなく、仕様・論理テストケース・テスト結果を通じて実装を検証する
-- 実装中に仕様変更が必要になった場合は、先にMarkdown仕様と論理テストケースを更新し、再承認後にコードを変更する
-
-### 役割
-
-- **人間**
-  - 機能の目的・要求・制約を提示する
-  - 仕様、論理テストケース、中心的契約、TDD計画、各Gateを最終承認する
-  - 最終レビュー結果と証跡を確認し、Slice Completeを判断する
-- **仕様エージェント**
-  - 仕様書、論理テストケース、中心的契約候補、最小TDD計画を作成する
-  - 曖昧さ・矛盾・不足を確認事項として提示し、判断を勝手に補完しない
-  - テストコードとプロダクトコードを変更しない
-- **テストエージェント**
-  - 承認済み成果物からTDDテストを作成し、Valid Redを記録する
-  - 実装後は新しいコンテキストでコードを調査し、追加テストと実装後テストレポートを作成する
-  - プロダクトコードを変更せず、期待値を実装へ合わせない
-- **実装エージェント**
-  - 凍結済みTDDテストを変更せず、Greenにする最小のプロダクト実装を行う
-  - 仕様またはテストの変更が必要なら停止して差し戻す
-- **レビューエージェント**
-  - 新しいコンテキストで仕様、差分、テスト、証跡を統合的に確認する
-  - 問題を仕様・テスト・実装・環境へ分類して差し戻し、自ら修正または自己承認しない
-- **オーケストレーター**
-  - 成果物、対象SHA、状態、Gate、工程順序、差し戻しを管理する
-  - 仕様・品質判断、成果物の修正、人間承認を代行しない
-
-## テスト・開発フロー
-
-0→1開発と新しいユーザー価値を追加する機能開発は `docs/VERTICAL-SLICE-DEVELOPMENT-WORKFLOW.md` に従い、最小垂直スライスとして、仕様作成から実装後テスト・統合テスト・E2E・全体検証までを1サイクルで完了する。フロントエンド全体を先に作り、その後でバックエンド全体を作るような大規模な水平分割は行わない。
-
-垂直スライスは全レイヤーのコード変更を要求しない。既存APIなどを利用してユーザー価値が完成する場合は、フロントエンドだけのコード変更でもよい。部分的な不具合修正、外部挙動を変えないリファクタリング、UI改善、テスト・依存関係・CI・インフラ・文書の保守では、影響範囲内で独立して検証可能な最小変更を単位とし、関係のないレイヤーの変更やテストを要求しない。
-
-実装前の最小TDDには `docs/TDD-WORKFLOW.md` を適用する。役割分離、独立コンテキスト、Gate、差し戻しは `docs/FOUR-AGENT-DEVELOPMENT-WORKFLOW.md` を適用する。TDD Greenは機能全体のテスト完了ではなく、その後に新しいテストエージェントによる実装後テストと、新しいレビューエージェントによる最終統合レビューへ進む。
-
-テストの選定と品質判定には `docs/MINIMUM-TDD-TEST-PRINCIPLES.md` を必ず適用し、論理テストケースと実行証跡は `docs/templates/minimum-tdd-test-plan.md` を基に記録する。
-
-実装後のカバレッジ分析、追加単体テスト、統合テスト、E2E、全体検証は `docs/templates/post-implementation-test-report.md` を基に記録する。
-
-このプロジェクトでの適用時の補足:
-
-- 仕様ファイルの置き場所: `docs/specs/<feature-slug>.md`（新規機能）
-- 論理テストケースファイルの置き場所: `docs/specs/<feature-slug>-test-cases.md`
-- 実装前TDD計画: `docs/specs/<feature-slug>-tdd-plan.md`
-- 実装後テストレポート: `docs/specs/<feature-slug>-post-test-report.md`
-- 現在のpurchase CRUDは仕様書と機能テストがない既存実装なので、最初の整備ではTDD-WORKFLOW.mdのケースBを適用する
-- 実装コードとテストコードはレイヤーを問わずAIが担当する。人間は仕様・論理テストケース・テスト結果を確認し、実装が仕様に適合しているかを最終判断する
+- AIはdomain / services / auth / frontend / infrastructureを含むすべてのレイヤーのテストコード・アプリケーションコード・インフラコードを実装する
+- 実装中に仕様変更が必要になった場合は、先に仕様と論理テストケースを更新し、再承認後にコードを変更する
+- テストの選定と品質判定には`docs/MINIMUM-TDD-TEST-PRINCIPLES.md`、中心的契約の選定には`docs/CORE-CONTRACT-SELECTION.md`を適用する
+- 局所変更（Bounded、不具合修正、リファクタリング、保守）では論理テストケースとTDD計画のファイルを省略できるが、`docs/TDD-WORKFLOW.md`の「局所変更」に従う
+- 現在のpurchase CRUDのうち仕様とテストがない既存実装へテストを追加する場合は、`docs/TDD-WORKFLOW.md`のretrofitを適用する
 
 ## Commands
 
