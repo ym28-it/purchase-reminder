@@ -32,6 +32,12 @@ superpowers:brainstorming → [独自] design-tdd-tests → superpowers:writing-
   → superpowers 最終コードレビュー → verification-before-completion → finishing-a-development-branch
 ```
 
+### Claude CodeとCodexの役割
+
+- **Claude Code**: 開発作業の実行基盤。superpowersと独自TDD Skills（`.claude/skills/`）による仕様化、計画、テスト、実装、検証、コミット、Pull Requestを担当する
+- **Codex（ChatGPT Workを含む）**: レビューと助言の相談役。ワークフローの工程、コード変更、承認は行わない。役割は[`AGENTS.md`](AGENTS.md)に定める
+- Codexの指摘は判断材料として扱い、`superpowers:receiving-code-review`に従って根拠を検証してから反映する。相談の時点は`docs/TDD-WORKFLOW.md`の「実行環境とCodexの位置づけ」を参照
+
 ### superpowersより優先する規則
 
 このファイルと`docs/TDD-WORKFLOW.md`はsuperpowersのSkillより優先する。
