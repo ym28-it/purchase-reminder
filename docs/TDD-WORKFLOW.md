@@ -47,6 +47,21 @@ superpowers:verification-before-completion → superpowers:finishing-a-developme
 - **TDDテストを凍結する。** Valid Red記録後、Greenタスクの実装者とレビュー指摘の修正者はTDDテストと期待値を変更しない。変更が必要に見える場合は停止し、Redタスクまたは仕様へ差し戻す。
 - **環境障害をRedや実装欠陥に数えない。** 環境スモークが失敗した場合は`ENVIRONMENT_FAILURE`として停止し、`setup-test-environment`で環境を確認・修復する。
 
+### 2.2 実行環境とCodexの位置づけ
+
+superpowersとこの文書の手順はClaude Codeだけで実行する。独自Skillsは`.claude/skills/`に置き、Codex（ChatGPT Workを含む）からは使わない。
+
+Codexはレビューと助言を行う相談役であり、ワークフローの工程を担当しない。Codexの役割は[`AGENTS.md`](../AGENTS.md)に定める。Codexへの相談は任意で、特に次の時点で有効である。
+
+| 時点 | 相談内容の例 |
+|---|---|
+| 仕様・論理テストケース・TDD計画の承認前 | 曖昧さ、矛盾、不足、中心的契約の過不足 |
+| 実装計画の承認前 | タスク分割、Red/Greenタスクの配置、TDD計画とのトレーサビリティ |
+| 最終コードレビューの前後 | 仕様・テスト・実装の整合、凍結済みテストの変更有無、残存リスク |
+| 行き詰まったとき | 設計・原因調査の助言 |
+
+Codexの指摘は判断材料であり、承認や指示ではない。Claude Codeは`superpowers:receiving-code-review`に従って根拠を検証してから反映し、Gateの承認は人間が行う。
+
 ## 3. 成果物
 
 新規機能の成果物は、superpowersの既定配置である`docs/superpowers/specs/`へ、仕様（design doc）と同じ日付・トピックを接頭辞として置く。
@@ -250,6 +265,8 @@ superpowers:brainstormingがBoundedと分類した変更、不具合修正、外
 - 変更の影響がレイヤー境界を越える場合だけ、必要な統合テストやE2Eを追加する
 
 ## 9. Skills
+
+`design-tdd-tests`、`create-tdd-tests`、`implement-tdd-slice`、`verify-feature-slice`はClaude Code専用で`.claude/skills/`に置く。`setup-test-environment`は環境契約の検証のためClaude CodeとCodexで共有し（`.agents/skills/`）、環境コードの変更はClaude Codeで行う。
 
 | Skill | 担当 | 変更してよいもの |
 |---|---|---|
