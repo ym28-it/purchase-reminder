@@ -316,3 +316,23 @@ def test_list_contains_only_current_users_purchases(client: TestClient) -> None:
     assert purchases(client) == [a_item]
     as_user("user-b")
     assert purchases(client) == [b_item]
+
+
+def test_reservation_rejects_duplicate_when_both_requests_pass_the_precheck(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PURC-014-TC8 / IMPL-RISK-005: force the race window deterministically.
+
+    The implementation first reads existing purchases and then writes with a
+    reservation. Concurrent requests can both pass the read; simulating that by
+    hiding existing purchases from the pre-check must still yield one 201, one
+    409, and a single stored purchase.
+    """
+    monkeypatch.setattr("app.models.purchase.get_all_purchase_items", lambda *_a, **_k: [])
+    as_user("user-a")
+
+    first = client.post("/purchases", json=valid_purchase())
+    second = client.post("/purchases", json=valid_purchase(stock=5))
+
+    assert (first.status_code, second.status_code) == (201, 409)
+    assert purchases(client) == [first.json()]
