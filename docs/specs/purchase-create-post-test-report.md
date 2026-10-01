@@ -10,11 +10,12 @@
 | TDD計画 | `docs/specs/purchase-create-tdd-plan.md` |
 | TDD Greenコミット | `669c726abd03c94426d2614da2b741c81baaf82e` |
 | 凍結TDDテストの版 | `15e48f6f4339874d8636b9659f58f7dd52825c10`（検証対象SHAで3ファイルとも差分なし） |
-| 検証対象SHA（テスト） | `c54af03715283262eff00033ba7427cc07b25344`（ブランチ `verify/purchase-create`、`main`取り込み `d775ec8` 後） |
+| 検証対象SHA（プロダクトコード） | `f807d6816c835afb8182b56af0f4b660f6a25d08`（ブランチ `verify/purchase-create`。差し戻し修正 `9f29e1d0bae75da6ca12bcdd94849a067b6876da` を含む。以後のコミットはテストと本レポートのみ） |
+| 前回の実装後検証 | `09092c27e72974cd2edc0c3b9e9e08f2deb9f6f2`（テスト対象 `c54af03`。DEFECT-001〜003、Baseline GAP-003を検出） |
 | 対象スライス | 一覧の「追加」操作から、現在利用者への永続化と一覧反映まで |
 | 状態 | Reviewed-ready（人間確認待ち） |
 | 確認者 | Pending（ym28-it） |
-| 確認日 | Pending（検証実施日: 2026-10-01） |
+| 確認日 | Pending（検証実施日: 2026-10-01、差し戻し修正の再検証: 2026-10-01） |
 
 期待結果は承認済み論理Test Case IDをSSOTとし、本レポートでは再定義しない。
 
@@ -57,9 +58,9 @@
 ## 実装した処理フロー
 
 1. 一覧画面（`features/Purchase.tsx`）の「追加」で登録ダイアログ（`features/CreatePurchaseDialog.tsx`）を開く。
-2. react-hook-form + zodで5項目を検証する。名前・カテゴリは長さ上限と`trim()`後の空判定、消費スピード・在庫は`z.coerce.number()`による整数・0〜100,000判定。違反時は項目下にエラーを表示し送信しない。
+2. react-hook-form + zodで5項目を検証する。名前・カテゴリは`trim()`後の空判定とコードポイント単位（`[...value].length`）の長さ上限、消費スピード・在庫は`valueAsNumber`で数値化し、空欄（`NaN`）を必須エラー、整数・0〜100,000を判定する（9f29e1d以降）。違反時は項目下にエラーを表示し送信しない。
 3. `useCreatePurchase` → `api/purchases.ts` の `createPurchase`（openapi-fetch）で `POST /purchases` を送る。送信中は登録ボタンを無効化して「登録中...」と表示する。
-4. API（`api/purchase.py`）は`PurchaseCreateRequest`（Pydantic、strict int、`max_length`、空白のみ拒否）で検証し422を返す。利用者IDは依存関係（現在は固定`dev-user`スタブ）から取得する。
+4. API（`api/purchase.py`）は`PurchaseCreateRequest`（Pydantic、strict int、`max_length`、空白のみ拒否、`is_temporary`は既定値なしの必須項目）で検証し422を返す。利用者IDは依存関係（現在は固定`dev-user`スタブ）から取得する。
 5. `services/purchase_service.create_purchase`がUUIDと日時をサーバー側で生成し、`models/purchase.create_purchase_item`が強整合Queryで既存の完全一致を確認後、本体アイテムと利用者単位の一意性予約（`PURCHASE_UNIQUE#sha256([name, category])`）を1トランザクションで書き込む。重複は`ItemAlreadyExistsError`→409。
 6. 成功時はダイアログを閉じて入力を初期化し、`["purchases"]`クエリを無効化して`GET /purchases`で一覧を再取得する。失敗時はダイアログを開いたまま、409の重複は原因別、それ以外は「登録に失敗しました」を表示する。
 
@@ -76,21 +77,21 @@
 
 ### 実行条件
 
-- Backend（`backend/`）: `../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest -q --cov=app --cov-branch --cov-report=term-missing`（unit + integration、140 passed / 1 xfailed）
-- Frontend（`frontend/`）: `bun run test -- --run --coverage --coverage.include=src/features/CreatePurchaseDialog.tsx --coverage.include=src/features/Purchase.tsx --coverage.include=src/hooks/usePurchases.ts --coverage.include=src/api/purchases.ts --coverage.reporter=text`
+- Backend（`backend/`）: `../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest -q --cov=app --cov-branch --cov-report=term-missing`（unit + integration、141 passed、xfailなし。2026-10-01再検証）
+- Frontend（`frontend/`）: `bun run test -- --run --coverage --coverage.include=src/features/CreatePurchaseDialog.tsx --coverage.include=src/features/Purchase.tsx --coverage.include=src/hooks/usePurchases.ts --coverage.include=src/api/purchases.ts --coverage.reporter=text`（差し戻し修正の変更行は`--coverage.include=src/features/CreatePurchaseDialog.tsx`で再取得）
 - ツール: coverage 7.16.2 / pytest-cov 7.1.0（backend dev依存に追加）、@vitest/coverage-v8 4.1.10（frontend dev依存に追加）
 
 ### 結果
 
 | 対象 | Line | Branch | 備考 |
 |---|---:|---:|---|
-| `backend/app/api/schemas/purchase.py` | 100%（23/23） | 100%（2/2） | |
+| `backend/app/api/schemas/purchase.py` | 100%（23/23） | 100%（2/2） | 再検証値。`is_temporary`必須化の変更行を含む |
 | `backend/app/models/purchase.py` | 64%（50/78） | 25%（5/20） | 未カバーは76, 118, 146-185（PUT）, 197, 212-215（DELETE異常系）。未実行分岐の大半はPUT。line+branch合算56.1% |
 | `backend/app/api/purchase.py` | 90.5%（19/21） | 分岐なし | 51-60はPUTエンドポイント |
 | `backend/app/services/purchase_service.py` | 80%（16/20） | 分岐なし | 55-68は`put_purchase` |
 | `backend/app/api/exception_handlers.py` | 90% | - | 15は404ハンドラ |
 | `backend/app/api/deps.py` | 67% | - | 12はテストで依存を上書き。E2Eでは実行 |
-| `frontend/src/features/CreatePurchaseDialog.tsx` | 84.61% | 90% | 92-93はダイアログを閉じる操作での`reset()` |
+| `frontend/src/features/CreatePurchaseDialog.tsx` | 87.5%（14/16） | 90%（18/20） | 再検証値。未カバーは100-101（閉じる操作での`reset()`、GAP-005）のみ。追加された`codePointLength`、`requiredText`、`quantity`と`valueAsNumber`の空欄経路はすべて実行済み |
 | `frontend/src/features/Purchase.tsx` | 63.63% | 66.66% | 100-135は編集・削除ダイアログのハンドラ |
 | `frontend/src/hooks/usePurchases.ts` | 66.66% | 100% | 29-31, 47は編集・削除フック |
 | `frontend/src/api/purchases.ts` | 54.54% | 37.5% | 21-26, 36-39は`putPurchase`/`deletePurchase`。`getAllPurchases`のエラー分岐も未実行 |
@@ -105,7 +106,7 @@ coverage行番号は`models/purchase.py`の文単位。カバレッジ率は未�
 | GAP-002 | `models/purchase.py` 76, 118（重複以外の`ClientError`を再送出→500） | Important | 実DynamoDBの`TransactionConflict`等で409ではなく500になる（IMPL-RISK-006） | Justified。500時に内部情報を出さないことはUnitで確認。競合理由別の期待結果はDynamoDB Localで再現できないため残存リスク | PURC-014-TC8, PURC-017-TC2 |
 | GAP-003 | `models/purchase.py` 146-185, `api/purchase.py` 51-60, `services` 55-68（PUT） | Specification gap | 編集は仕様§8で対象外。実装は編集挙動を変更した（SCOPE-001） | 人間判断により仕様挙動としてテストしない。既知制約へ | 仕様§8 |
 | GAP-004 | `models/purchase.py` 197, 212-215（存在しない購入物の削除） | Low risk | 削除は対象外。正常削除と再登録はIMPL-RISK-003で確認 | Justified | 仕様§8 |
-| GAP-005 | `CreatePurchaseDialog.tsx` 92-93（閉じる操作での初期化） | Low risk | キャンセル時の入力保持は仕様にない。成功時の初期化はPURC-010-TC2で確認 | Justified | 仕様§7 |
+| GAP-005 | `CreatePurchaseDialog.tsx` 100-101（9f29e1d前は92-93。閉じる操作での初期化） | Low risk | キャンセル時の入力保持は仕様にない。成功時の初期化はPURC-010-TC2で確認 | Justified | 仕様§7 |
 | GAP-006 | `Purchase.tsx` 100-135、`usePurchases.ts` 29-31, 47、`api/purchases.ts` 21-26, 36-39 | Low risk | 編集・削除UIと一覧取得失敗。いずれも本スライス外 | Justified | 仕様§8 |
 | GAP-007 | APIの422がクライアント検証を通過した後に返った場合の画面表示（項目別表示が必要か） | Specification gap | 現実装は共通エラー「登録に失敗しました」を表示する。PURC-016-TC2はクライアント検証で満たすが、サーバー422の項目別表示の要否は一意に導けない | BLOCKED_SPEC（期待結果を推測しない）。ダイアログ維持・入力維持・内部情報非表示・失敗表示のみ検証 | PURC-016-TC2, 仕様§7 |
 | GAP-008 | 「50文字」「30文字」の数え方（結合文字列、異体字セレクタ、ZWJ絵文字などの書記素クラスタとコードポイントの違い） | Specification gap | `𠮷`のような1コードポイント＝1書記素の文字は一意に1文字と判断できるため検証した。書記素とコードポイントが食い違う文字の期待結果は一意に導けない | BLOCKED_SPEC（未テスト） | PURC-004-TC3〜6 |
@@ -113,7 +114,18 @@ coverage行番号は`models/purchase.py`の文単位。カバレッジ率は未�
 
 ## 実装欠陥（仕様違反）
 
-いずれもプロダクトコードは変更していない。テストは削除・緩和せず、厳格な期待失敗（pytest `xfail(strict=True)` / Vitest `test.fails`）として明示しスイートに残した。修正されると期待失敗が「予期せぬ成功」となって検出される。
+前回検証（09092c2）では、テストを削除・緩和せず、厳格な期待失敗（pytest `xfail(strict=True)` / Vitest `test.fails`）としてスイートに残した。実装の差し戻し修正（9f29e1d、プロダクトコードのみ）後、本再検証で期待失敗の指定を外して通常テストへ戻し、アサーションは変更せずにPassを確認した（DEFECT-003のテストには他の境界値テストと同じ`toHaveBeenCalledTimes(1)`を追加し、強化のみ行った）。
+
+| ID | 状態 | 修正内容（`git diff 09092c2 HEAD`） | 仕様適合の判断 | 解消の証跡 |
+|---|---|---|---|---|
+| DEFECT-001 | Resolved | `PurchaseCreateRequest.is_temporary: bool = False` → `Field(description=...)`（既定値なし） | 仕様§3の必須に適合。PUT（`PurchasePutRequest`）は変更なしで範囲外の挙動追加なし | `test_missing_is_temporary_is_rejected_with_field_and_not_stored` Pass（422、`loc`に`is_temporary`、永続化なし） |
+| DEFECT-002 | Resolved | `z.coerce.number()` → `register(..., { valueAsNumber: true })` + `z.number({ error })`。空欄は`NaN`となり項目別エラー | PURC-003-TC1・PURC-004「補正しない」に適合。初期値0（PURC-002-TC2）は維持 | 「emptied speed/stock」2ケース Pass（項目別エラー、他項目エラーなし、未送信）。PURC-002-TC2初期値テスト、境界値・小数・負数ケースも Pass |
+| DEFECT-003 | Resolved | 文字数を`[...value].length`（コードポイント）で数える`requiredText`へ置換。空判定は`trim()`後 | API（Pythonの`len`、コードポイント）と一致しPURC-003のUI/API一貫性に適合。書記素とコードポイントが食い違う文字はGAP-008のまま | 「50 surrogate name」「30 surrogate category」Pass。51/31（`𠮷`・ASCII）拒否、50/30（ASCII）受理もPass |
+| Baseline GAP-003（クリーンビルド） | Resolved | `frontend/package.json`の`build`を`tsc -b && vite build` → `vite build && tsc -b`（Viteの TanStack Routerプラグインが`routeTree.gen.ts`を生成してから型検査） | TDD計画でGreen Gateまでに解消すると定めた既存失敗の修正。期待動作は変えない | `rm -f src/routeTree.gen.ts && bun run build` 終了0（生成後に`tsc -b`も成功） |
+
+修正は上記4ファイルの差分のみで、新しい利用者向け振る舞いは追加されていない。観察事項（いずれも期待動作に影響しない）: `CLAUDE.md`のCommands節は`bun run build`を旧順序`tsc -b && vite build`と記載したまま。`frontend/src/api/schema.d.ts`の作成リクエスト`is_temporary`は型としては必須だが、生成時の`@default false`コメントが残る（OpenAPIからの再生成で解消）。
+
+前回検証時の欠陥記録（参考）:
 
 | ID | Test Case ID | 内容 | 失敗アサーション（`--runxfail`または`test.each`へ一時変更して確認） | 実テスト |
 |---|---|---|---|---|
@@ -128,9 +140,9 @@ coverage行番号は`models/purchase.py`の文単位。カバレッジ率は未�
 | PURC-017-TC2（API） | Unit | `backend/tests/unit/api/test_purchase_create_errors.py` | 永続化層の内部エラーで500となり、ARN・テーブル名・例外名を返さない | Pass |
 | PURC-002-TC1/TC2 | Component | `CreatePurchaseDialog.post.test.tsx`「five inputs exist with the approved initial values」 | 5項目と初期値 | Pass |
 | PURC-003-TC1, PURC-004-TC1/2/4/6/8/10, PURC-016-TC2 | Component | 同「invalid input is not sent」17ケース（空、ASCII空白、U+3000、混在空白、51/31文字のASCIIと`𠮷`、負数、小数、100,001） | 項目別エラー、他項目にエラーなし、未送信 | Pass |
-| PURC-003-TC1（空欄） | Component | 同「emptied speed/stock」2ケース | 必須数値の空欄 | Expected fail（DEFECT-002） |
+| PURC-003-TC1（空欄） | Component | 同「emptied speed/stock」2ケース | 必須数値の空欄（`NaN`経路） | Pass（DEFECT-002解消。旧Expected fail） |
 | PURC-004-TC3/5/7/9/11/12, PURC-014-TC5/6（UI側の非正規化） | Component | 同「accepted boundaries are sent unchanged」10ケース | 境界値と文字列が変更されずに1回だけ送信される | Pass |
-| PURC-004-TC3/5（`𠮷`） | Component | 同「50 surrogate name」「30 surrogate category」 | 文字数の数え方のUI/API一貫性 | Expected fail（DEFECT-003） |
+| PURC-004-TC3/5（`𠮷`） | Component | 同「50 surrogate name」「30 surrogate category」 | 文字数の数え方のUI/API一貫性（コードポイント50/30） | Pass（DEFECT-003解消。旧Expected fail） |
 | PURC-001-TC1 | Component | `Purchase.post.test.tsx`「the add action on the list opens the registration screen」 | 一覧から登録画面を開く | Pass |
 | PURC-012-TC2/TC3 | Component | 同「only the temporary purchase is marked temporary」 | 一時的購入表示の両極性 | Pass |
 | PURC-010-TC1/TC2, PURC-011-TC1, PURC-012-TC4 | Component（fetch境界） | 同「closes, refetches, shows no extra success message, and reopens with initial values」 | 実APIクライアント・フック経由の成功後状態 | Pass |
@@ -150,7 +162,7 @@ coverage行番号は`models/purchase.py`の文単位。カバレッジ率は未�
 |---|---|---|---|---|
 | PURC-003-TC2, PURC-004-TC1/2/4/6/8/10, PURC-016-TC2（API） | API → Pydantic → DynamoDB Local | `test_invalid_input_is_rejected_with_field_and_not_stored`（18ケース。U+3000、`𠮷`×51/×31、`null`を含む） | 422、`loc`による項目識別、永続化なし | Pass |
 | PURC-003-TC3 | 同上 | `test_missing_required_field_is_rejected_with_field_and_not_stored`（name/category/speed/stock） | 欠落項目の422と識別 | Pass |
-| PURC-003-TC3（is_temporary） | 同上 | `test_missing_is_temporary_is_rejected_with_field_and_not_stored` | 必須項目の欠落 | Expected fail（DEFECT-001） |
+| PURC-003-TC3（is_temporary） | 同上 | `test_missing_is_temporary_is_rejected_with_field_and_not_stored` | 必須項目の欠落 | Pass（DEFECT-001解消。旧Expected fail） |
 | PURC-004-TC3/5/7/9/11 | 同上 | `test_boundary_input_is_created_and_stored_unchanged`（9ケース。`𠮷`×50/×30を含む） | 201と、再取得値が送信値と一致（切り詰め・丸めなし） | Pass |
 | PURC-006-TC1/TC2 | API → services → DynamoDB Local | `test_each_create_gets_distinct_id_and_server_timestamps` | クライアント指定のid・日時を無視し、異なるIDとサーバー日時を付与 | Pass |
 | PURC-014-TC1, PURC-016-TC1（API） | 同上 | `test_exact_duplicate_is_rejected_with_409_and_original_kept` | 409、重複を識別できるdetail、元の購入物が不変 | Pass |
@@ -179,14 +191,14 @@ coverage行番号は`models/purchase.py`の文単位。カバレッジ率は未�
 | PURC-001-TC1 | Component + E2E | `Purchase.post` PURC-001-TC1 / E2E 1 | Pass | |
 | PURC-002-TC1 | Component | `CreatePurchaseDialog.post` PURC-002 | Pass | |
 | PURC-002-TC2 | Component | 同上、`Purchase.post` PURC-001-TC1 | Pass | |
-| PURC-003-TC1 | TDD + Component | PURC-TDD-003 / invalid input 17ケース / emptied 2ケース | Fail（空欄の数値: DEFECT-002。その他Pass） | |
+| PURC-003-TC1 | TDD + Component | PURC-TDD-003 / invalid input 17ケース / emptied 2ケース | Pass（DEFECT-002解消） | |
 | PURC-003-TC2 | TDD + Integration | PURC-TDD-004 / `test_invalid_input_...` | Pass | |
-| PURC-003-TC3 | Integration | `test_missing_required_field_...` / `test_missing_is_temporary_...` | Fail（is_temporary: DEFECT-001。他4項目Pass） | |
+| PURC-003-TC3 | Integration | `test_missing_required_field_...` / `test_missing_is_temporary_...` | Pass（DEFECT-001解消） | |
 | PURC-004-TC1 | Component + Integration | 空・空白・U+3000・混在空白 | Pass | |
 | PURC-004-TC2 | Component + Integration | 同上（カテゴリ） | Pass | |
-| PURC-004-TC3 | Component + Integration | 50文字ASCII・`𠮷` | Fail（UIの`𠮷`×50: DEFECT-003。APIとASCIIはPass） | |
+| PURC-004-TC3 | Component + Integration | 50文字ASCII・`𠮷` | Pass（DEFECT-003解消） | |
 | PURC-004-TC4 | Component + Integration | 51文字ASCII・`𠮷` | Pass | |
-| PURC-004-TC5 | Component + Integration | 30文字ASCII・`𠮷` | Fail（UIの`𠮷`×30: DEFECT-003。APIとASCIIはPass） | |
+| PURC-004-TC5 | Component + Integration | 30文字ASCII・`𠮷` | Pass（DEFECT-003解消） | |
 | PURC-004-TC6 | Component + Integration | 31文字ASCII・`𠮷` | Pass | |
 | PURC-004-TC7 | TDD + Component + Integration | speed 0（TDD-001/002）、100000 | Pass | |
 | PURC-004-TC8 | Component + Integration | speed -1 / 1.5 / 100001 | Pass | |
@@ -230,33 +242,31 @@ coverage行番号は`models/purchase.py`の文単位。カバレッジ率は未�
 | PURC-019-TC1 | Integration | `test_list_contains_only_current_users_purchases` | Pass | |
 | PURC-019-TC2 | TDD | PURC-TDD-005 | Pass | |
 
-未割り当て0件。対象外0件。Failは3件（PURC-003-TC1、PURC-003-TC3、PURC-004-TC3/TC5の一部ケース）で、すべて実装欠陥DEFECT-001〜003として期待失敗で残している。
+未割り当て0件。対象外0件。Fail 0件（前回Failだった PURC-003-TC1、PURC-003-TC3、PURC-004-TC3/TC5 は差し戻し修正後に通常テストとしてPass）。期待失敗（xfail / test.fails）の指定は残っていない。
 
 ## 全体検証
 
-検証対象SHA `c54af03715283262eff00033ba7427cc07b25344`、2026-10-01、Linux（Claude Code）。Backendは`backend/`から、Frontendは`frontend/`から実行。事前に`bash scripts/setup_host_prerequisites.sh --check`（終了0、mise 2026.9.12 / uv 0.12.18 / Python 3.14.7 / Java 17.0.20.1）を確認した。
+2026-10-01、Linux（Claude Code）。プロダクトコードは`f807d6816c835afb8182b56af0f4b660f6a25d08`、テストは本レポートと同じコミットの作業ツリーで実行した。Backendは`backend/`から、Frontendは`frontend/`から実行。事前に`bash scripts/setup_host_prerequisites.sh --check`（終了0、mise 2026.9.12 / uv 0.12.18 / Python 3.14.7 / Java 17.0.20.1）を確認した。
 
 | 検証 | コマンド | 結果 | 備考 |
 |---|---|---|---|
-| Backend tests | `../bin/mise exec -- uv run pytest -m 'not integration' -q` | Pass（終了0） | 73 passed, 68 deselected |
-| Frontend tests | `bun run test -- --run` | Pass（終了0） | 4 files、42 passed、4 expected fail（DEFECT-002/003）、計46 |
-| Integration | `../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest -m integration -q` | Pass（終了0） | API ready PASS、67 passed、1 xfailed（DEFECT-001）、73 deselected、Child exit 0、DynamoDB Local停止確認 |
-| E2E | `bash e2e/run-e2e.sh` | Pass（終了0） | 2 passed、Child exit 0 |
-| Backend lint / format | `uv run ruff check .` / `uv run ruff format --check .` | Pass（終了0 / 0） | All checks passed / 48 files already formatted |
-| Frontend lint / format | `bun run lint` / `bun run format:check` | Pass（終了0 / 0） | 40 files / 35 files |
-| Type check | `bun run build`内の`tsc -b` | Pass（`routeTree.gen.ts`生成後） | 新規テストファイルも型検査対象 |
-| Build（クリーン） | `rm src/routeTree.gen.ts && bun run build` | Fail（終了2） | `TS2307: Cannot find module './routeTree.gen'`。`tsc -b`がVite（TanStack Routerプラグイン）による生成より先に走るため。TDD計画Baseline（GAP-003）の既存失敗で、本スライスは`package.json`・`main.tsx`を変更していない。テスト担当はビルド設定を変更しない |
-| Build（生成後） | `bunx vite build` → `bun run build` | Pass（終了0 / 0） | |
+| Backend lint / format | `../bin/mise exec -- uv run ruff check .` / `../bin/mise exec -- uv run ruff format --check .` | Pass（終了0 / 0） | All checks passed / 48 files already formatted |
+| Backend tests | `../bin/mise exec -- uv run pytest -m "not integration" -q` | Pass（終了0） | 73 passed, 68 deselected |
+| Integration | `../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest -m integration -q` | Pass（終了0） | API ready PASS、68 passed（xfailなし）、73 deselected、Child exit 0、DynamoDB Local停止確認 |
+| Frontend lint / format | `bun run lint` / `bun run format:check` | Pass（終了0 / 0） | 40 files / 35 files、No fixes applied |
+| Frontend tests | `bun run test -- --run` | Pass（終了0） | 4 files、46 passed（expected failなし） |
+| Type check + Build（クリーン） | `rm -f src/routeTree.gen.ts && bun run build`（`vite build && tsc -b`） | Pass（終了0） | `routeTree.gen.ts`を生成後に`tsc -b`成功。Baseline GAP-003解消 |
+| E2E | `bash e2e/run-e2e.sh` | Pass（終了0） | 2 passed、Child exit 0、DynamoDB Local停止確認 |
 | Infrastructure validation | Environment smoke（runnerのAPI ready、`--check`） | Pass | Terraformは未実装のため対象なし |
 
-凍結TDDテストは`git diff 15e48f6 HEAD -- <3ファイル>`で差分なし。プロダクトコードは`git diff origin/feat/purchase-create-implementation HEAD -- backend/app backend/main.py frontend/src ':(exclude)*.test.tsx'`で差分なし。仕様・論理テストケース・TDD計画は変更していない。
+凍結TDDテストは`git diff 15e48f6 HEAD -- backend/tests/integration/api/test_purchase_create.py frontend/src/features/Purchase.test.tsx frontend/src/features/CreatePurchaseDialog.test.tsx`で差分なし。本再検証で変更したのは実装後テスト2ファイル（期待失敗の指定解除と呼び出し回数アサーションの追加）と本レポートのみで、プロダクトコード、仕様、論理テストケース、TDD計画は変更していない。
 
 ## 未実行・残存リスク
 
 | 項目 | 理由 | 影響 | 後続対応 |
 |---|---|---|---|
-| DEFECT-001〜003 | 実装欠陥。テスト担当はプロダクトコードを変更しない | 仕様違反が残る（必須`is_temporary`欠落の受理、空欄数値の0送信、サロゲートペアの文字数不一致） | 実装へ差し戻し。修正後は`xfail`/`test.fails`を通常テストへ戻す（期待値は変更しない） |
-| クリーンビルド失敗 | Baseline GAP-003（`routeTree.gen.ts`未生成で`tsc -b`失敗）が未解消 | 新規クローンで`bun run build`が失敗する。CIはbuildを実行していない | ビルド手順の修正を別タスクで判断 |
+| SCOPE-001（範囲外の変更、未解消） | 実装がPUT（編集）とDELETEの永続化挙動を変更した。2026-09-30の人間判断で編集は本スライス外とされ、仕様挙動としてテストしていない | 範囲外変更を本スライスに含めてよいかが人間判断待ち | マージ前に人間が、範囲外変更を受け入れるか分離するかを判断する |
+| CIでbuildを実行していない | `lint.yml`・`test.yml`は`bun run build`を含まない | クリーンビルドの回帰はローカル検証でしか検出できない | Low。CI整備時に判断 |
 | DynamoDB Local統合テストとE2EがCI未実行 | `.github/workflows/integration.yml`と`e2e.yml`が未作成。`test.yml`はunitとVitest（`--passWithNoTests`付き）のみ | PRごとの自動検出は統合・E2E・競合系に及ばない | テスト実行環境構築計画どおり`integration.yml`と`e2e.yml`を追加し、`--passWithNoTests`を外す |
 | 仕様§10: 保存完了後に応答だけ失われる | 冪等性キーと結果照合は本スライス対象外 | 利用者には失敗と表示され、手動再試行は409（重複）になる | 後続課題（仕様§10） |
 | IMPL-RISK-006 `TransactionConflict` | DynamoDB Localで決定的に再現できない | 実DynamoDBの同時登録で敗者が409ではなく500となる可能性 | 実環境での負荷検証、またはエラー変換の仕様確認 |
@@ -264,6 +274,20 @@ coverage行番号は`models/purchase.py`の文単位。カバレッジ率は未�
 | GAP-007/008/009（BLOCKED_SPEC） | 仕様から期待結果を一意に導けない | サーバー422の画面表示、書記素単位の文字数、整数の表記ゆれが未確定 | 人間が必要と判断した場合に仕様と論理テストケースへ追加 |
 | 一覧Queryのページネーションなし | 既存実装。重複の事前Queryも同じ関数を使う | 1MBを超える利用者パーティションでは事前確認の漏れや一覧の欠落が起こりうる（予約トランザクションで重複自体は防止） | Low。件数増加時に対応 |
 | Cognito認証 | 未実装（固定`dev-user`スタブ） | 実際の利用者分離はAPI依存の上書きでのみ検証 | 認証実装時にE2Eへ追加 |
+
+## Completion Gate（`docs/TDD-WORKFLOW.md` 5.7）
+
+| 条件 | 判定 | 根拠 |
+|---|---|---|
+| 全必須テストと回帰テストがGreen | 満たす | unit 73、integration 68、Vitest 46、E2E 2、すべてPass。期待失敗なし |
+| 必須の静的検査とbuildが完了 | 満たす | ruff check / format、biome lint / format、クリーンビルド（`tsc -b`含む）が終了0 |
+| 全Test Case IDの対応が記録済みで、未割り当てがない | 満たす | 53/53、Fail 0 |
+| Criticalな未カバー箇所が残っていない | 満たす | GAP-001はテスト済み。差し戻し修正の変更行はすべて実行済み |
+| 未検証項目、Deferred、既知制約、残存リスクが明示済み | 満たす | GAP-007/008/009（BLOCKED_SPEC）、IMPL-RISK-006、仕様§10、SCOPE-001等を「未実行・残存リスク」に記載 |
+| 実装後テストレポートが対象SHAと整合 | 満たす | プロダクトコード`f807d68`、テストは本レポートと同一コミット |
+| 未承認の仕様変更、テスト緩和、範囲外変更がない | 満たさない（人間判断待ち） | 仕様変更・テスト緩和はない。SCOPE-001（PUT/DELETEの挙動変更）が範囲外変更として残り、受け入れ可否が未決定 |
+
+Completion Gateは、SCOPE-001の人間判断を除き満たしている。BLOCKED_SPEC（GAP-007/008/009）は期待結果を推測せず未テストのまま残しており、仕様へ追加するかは人間が判断する。
 
 ## Slice Complete Gate
 
@@ -273,9 +297,9 @@ coverage行番号は`models/purchase.py`の文単位。カバレッジ率は未�
 - [x] Criticalな未カバー箇所が残っていない（GAP-001にテストを追加）
 - [x] Importantな未カバー箇所をテストしたか、残す理由を記録した（GAP-002）
 - [x] 必要な単体・コンポーネント・統合・E2Eを実行した
-- [ ] 全体回帰、Lint、型チェック、ビルドを確認した（クリーンビルドは既存のGAP-003で失敗。その他はPass）
+- [x] 全体回帰、Lint、型チェック、ビルドを確認した（クリーンビルドを含めすべてPass。2026-10-01再検証）
 - [x] 未実行の検証と残存リスクを明示した
 - [x] 仕様または論理テストケースの変更時に影響する承認を取り直した（変更なし）
 - [ ] 人間がテスト内容、実行結果、対象外理由、残存リスクを確認した
 
-実装欠陥DEFECT-001〜003が残るため、本レポート時点ではスライス完了と判定しない。
+実装欠陥DEFECT-001〜003とBaseline GAP-003は解消済み。SCOPE-001（範囲外変更）とBLOCKED_SPEC GAP-007/008/009の人間判断、および人間によるレポート確認が残るため、本レポート時点ではスライス完了と判定しない。

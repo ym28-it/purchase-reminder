@@ -123,13 +123,6 @@ def test_missing_required_field_is_rejected_with_field_and_not_stored(
     assert purchases(client) == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT-001: spec §3 marks 一時的な購入 as 必須 and PURC-003-TC3 requires 422 for any "
-        "missing required item, but the API defaults a missing is_temporary to false (201)."
-    ),
-)
 def test_missing_is_temporary_is_rejected_with_field_and_not_stored(client: TestClient) -> None:
     """PURC-003-TC3 (is_temporary)."""
     as_user("user-a")

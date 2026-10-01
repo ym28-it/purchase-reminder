@@ -136,8 +136,9 @@ describe("PURC-003-TC1 / PURC-004 / PURC-016-TC2: invalid input is not sent", ()
 		await expectRejected(key);
 	});
 
-	// DEFECT-002: an emptied required numeric input is coerced to 0 and sent.
-	test.fails.each<[string, FieldKey]>([
+	// Regression for DEFECT-002 (resolved): an emptied required numeric input
+	// must be a field error, never coerced to 0 and sent.
+	test.each<[string, FieldKey]>([
 		["PURC-003-TC1 emptied speed", "speed"],
 		["PURC-003-TC1 emptied stock", "stock"],
 	])("%s is rejected at the field and not sent", async (_name, key) => {
@@ -187,10 +188,9 @@ describe("PURC-004: accepted boundaries are sent unchanged", () => {
 		expect(createPurchase).toHaveBeenCalledTimes(1);
 	});
 
-	// DEFECT-003: the UI counts UTF-16 code units, so 50 (30) surrogate-pair
-	// characters are rejected although the spec limit is 50 (30) characters and
-	// the API accepts them.
-	test.fails.each<[string, Partial<Record<FieldKey, string>>]>([
+	// Regression for DEFECT-003 (resolved): 50 (30) surrogate-pair characters
+	// are within the spec limit of 50 (30) characters, as the API counts them.
+	test.each<[string, Partial<Record<FieldKey, string>>]>([
 		["PURC-004-TC3 50 surrogate name", { name: SURROGATE.repeat(50) }],
 		["PURC-004-TC5 30 surrogate category", { category: SURROGATE.repeat(30) }],
 	])("%s", async (_name, overrides) => {
@@ -208,5 +208,6 @@ describe("PURC-004: accepted boundaries are sent unchanged", () => {
 				is_temporary: false,
 			}),
 		);
+		expect(createPurchase).toHaveBeenCalledTimes(1);
 	});
 });
