@@ -83,3 +83,29 @@
 | Frontend `bun run lint` / `bun run format:check` / `bun run build` | 0 / 0 / 0 | 全体lint・format、TypeScriptチェック、Vite build成功 |
 
 前節のformat失敗は修正前コミットに対する履歴。実装担当は修正版の凍結テストを変更せず受け取り、Green Gate判定はオーケストレーターに委ねる。
+
+## 実装後検証からの差し戻し対応（2026-10-01）
+
+PR #35の実装後検証（`docs/specs/purchase-create-post-test-report.md`）で見つかった実装欠陥を、`implement-tdd-slice`の変更境界で修正した。テストコード、仕様、論理テストケースは変更していない。
+
+- 入力SHA: `09092c27e72974cd2edc0c3b9e9e08f2deb9f6f2`（`verify/purchase-create`）
+- 修正コミット: `9f29e1d`
+
+| 欠陥 | 修正 |
+|---|---|
+| DEFECT-001（PURC-003-TC3） | APIの`is_temporary`を必須にした（既定値`false`を削除） |
+| DEFECT-002（PURC-003-TC1） | 消費スピード・在庫を`valueAsNumber`で受け、空欄（NaN）を0にせず項目エラーにした |
+| DEFECT-003（PURC-004-TC3/TC5） | 名前・カテゴリの文字数をAPIと同じくコードポイント単位で数えるようにした |
+| GAP-003 | buildを`vite build && tsc -b`に変更し、`src/routeTree.gen.ts`がないクリーンな状態から成功させた |
+
+| コマンド | 終了コード | 結果 |
+|---|---:|---|
+| 凍結TDDテストの差分確認 `git diff 15e48f6 -- <凍結3ファイル>` | 0 | 差分なし |
+| Backend `ruff format .` / `ruff check .` | 0 / 0 | Pass |
+| Backend `uv run pytest -m "not integration" -q` | 0 | 73 passed |
+| Backend `uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration -q` | 1 | API ready PASS、67 passed、1 failed。失敗はDEFECT-001を固定していた`xfail(strict=True)`が成功したことによる`XPASS(strict)`だけ |
+| Frontend `bun run test -- --run` | 1 | 42 passed、4 failed。失敗はDEFECT-002/003を固定していた`test.fails`4件が成功したことによるものだけ |
+| Frontend `bun run lint` / `bun run format:check` | 0 / 0 | Pass |
+| Frontend `rm -f src/routeTree.gen.ts && bun run build` | 0 | クリーンbuild成功 |
+
+欠陥を固定していた期待失敗マーカー（backend 1件、frontend 4件）の除去と、Completion Gateの再判定は実装後検証（`verify-feature-slice`）が行う。
