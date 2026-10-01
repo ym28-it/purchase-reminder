@@ -13,27 +13,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreatePurchase } from "@/hooks/usePurchases";
 
+/** API（Python）と同じくコードポイント単位で文字数を数える。 */
+function codePointLength(value: string): number {
+	return [...value].length;
+}
+
+function requiredText(emptyMessage: string, maxLength: number) {
+	return z
+		.string()
+		.refine((value) => value.trim().length > 0, emptyMessage)
+		.refine(
+			(value) => codePointLength(value) <= maxLength,
+			`${maxLength}文字以内で入力してください`,
+		);
+}
+
+/** 空欄はNaNになり、0として送らずに入力エラーにする。 */
+function quantity(emptyMessage: string) {
+	return z
+		.number({ error: emptyMessage })
+		.int("整数を入力してください")
+		.min(0, "0以上を入力してください")
+		.max(100000, "100000以下を入力してください");
+}
+
 const createPurchaseFormSchema = z.object({
-	name: z
-		.string()
-		.min(1, "名前を入力してください")
-		.max(50, "50文字以内で入力してください")
-		.refine((value) => value.trim().length > 0, "名前を入力してください"),
-	category: z
-		.string()
-		.min(1, "カテゴリを入力してください")
-		.max(30, "30文字以内で入力してください")
-		.refine((value) => value.trim().length > 0, "カテゴリを入力してください"),
-	speed: z.coerce
-		.number()
-		.int("整数を入力してください")
-		.min(0, "0以上を入力してください")
-		.max(100000, "100000以下を入力してください"),
-	stock: z.coerce
-		.number()
-		.int("整数を入力してください")
-		.min(0, "0以上を入力してください")
-		.max(100000, "100000以下を入力してください"),
+	name: requiredText("名前を入力してください", 50),
+	category: requiredText("カテゴリを入力してください", 30),
+	speed: quantity("消費スピードを入力してください"),
+	stock: quantity("現在の在庫を入力してください"),
 	isTemporary: z.boolean(),
 });
 
@@ -123,7 +131,7 @@ export function CreatePurchaseDialog({
 							id="create-speed"
 							type="number"
 							step="any"
-							{...register("speed")}
+							{...register("speed", { valueAsNumber: true })}
 						/>
 						{errors.speed && (
 							<p className="text-destructive text-sm">{errors.speed.message}</p>
@@ -136,7 +144,7 @@ export function CreatePurchaseDialog({
 							id="create-stock"
 							type="number"
 							step="any"
-							{...register("stock")}
+							{...register("stock", { valueAsNumber: true })}
 						/>
 						{errors.stock && (
 							<p className="text-destructive text-sm">{errors.stock.message}</p>
