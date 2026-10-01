@@ -90,7 +90,7 @@ superpowers:brainstorming → [独自] design-tdd-tests → superpowers:writing-
 
 - `bun install`
 - `bun run dev` — Viteのローカル直起動（frontendはDocker化せず常にローカル起動する方針）
-- `bun run build` — `tsc -b && vite build`
+- `bun run build` — `vite build && tsc -b`（TanStack Routerの`src/routeTree.gen.ts`をvite buildで生成してから型検査する）
 - `bun run lint` / `bun run format` / `bun run check` — Biome
 - `bun run preview`
 

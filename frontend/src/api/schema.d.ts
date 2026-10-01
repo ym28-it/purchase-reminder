@@ -70,7 +70,7 @@ export interface components {
 			stock: number;
 			/**
 			 * Is Temporary
-			 * @default false
+			 * @description 一時的な購入（必須）
 			 */
 			is_temporary: boolean;
 		};
