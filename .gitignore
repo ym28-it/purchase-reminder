@@ -5,3 +5,7 @@
 .idea
 .vscode/*
 !.vscode/extensions.json
+
+# test coverage artifacts
+.coverage
+coverage/
