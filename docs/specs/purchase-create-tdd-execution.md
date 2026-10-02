@@ -109,3 +109,61 @@ PR #35の実装後検証（`docs/specs/purchase-create-post-test-report.md`）�
 | Frontend `rm -f src/routeTree.gen.ts && bun run build` | 0 | クリーンbuild成功 |
 
 欠陥を固定していた期待失敗マーカー（backend 1件、frontend 4件）の除去と、Completion Gateの再判定は実装後検証（`verify-feature-slice`）が行う。
+
+## 第2版 Red（2026-10-02）
+
+`create-tdd-tests`で、TDD計画「第2版の追加」の承認済みPlan ID `PURC-TDD-008`〜`PURC-TDD-014`だけをテストへ翻訳した。プロダクトコード、仕様、論理テストケース、TDD計画、既存テストは変更していない。期待結果は論理テストケース第2版（9a節、PURC-004-TC14、PURC-016-TC1）だけから取った。
+
+- 開始SHA: `ff67499ebe32f17798aa6410359a28215319793a`（`verify/purchase-create`、作業ツリーはclean）
+- テストコミット: `8e939a26c81bc80a7ba8b06842a377f2cafb7544`
+
+### 環境とBaseline（テスト追加前）
+
+| コマンド（backendは`backend/`から`../bin/mise exec --`経由） | 終了コード | 結果 |
+|---|---:|---|
+| `bash scripts/setup_host_prerequisites.sh --check` | 0 | mise 2026.9.12、Python 3.14.7、uv 0.12.18、Java 17.0.20.1 |
+| `uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest tests/integration/test_environment.py -q` | 0 | 16 passed（環境smoke） |
+| `uv run pytest tests/unit -q` | 0 | 73 passed |
+| `uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest tests/integration -q` | 0 | 68 passed |
+| `uv run ruff check` / `uv run ruff format --check` | 0 / 0 | Pass（48 files formatted） |
+| Frontend `bun run test -- --run` | 0 | 4 files、46 passed |
+| Frontend `bun run lint` / `bun run format:check` | 0 / 0 | Pass |
+
+### テストの作り方
+
+- Backend（`backend/tests/integration/api/test_purchase_uniqueness_rev2.py`、`pytestmark = pytest.mark.integration`）: TestClient、`get_current_user_id`のoverride、teardownでのoverride解除。PURC-TDD-008/009は、購入物Pを組Xで登録→保存済みアイテムをスナップショット→PUTでYへ名前変更→`app.models.purchase.get_table`を、Pのキーに対する最初の`get_item`だけスナップショット（変更前の状態）を返し、それ以外は実テーブルへ委譲するプロキシに差し替える→DELETE P（008）またはPUT P→Z（009）、の順で競合を決定的に再現する。確認するのは仕様で観測できる結果（一覧にない組の登録可否、一覧にある組の409）だけ。
+- Frontend（`frontend/src/features/CreatePurchaseDialog.rev2.test.tsx`）: `vi.hoisted`で`globalThis.fetch`をモックへ差し替えてから読み込み、HTTP層だけをモックする。`Content-Type: application/json`の実`Response`を返し、`@/api/queryClient`の`queryClient`で`Purchase`画面を描画して、実際の開閉操作を使う。各テスト後に`queryClient.clear()`。
+
+### Red実行
+
+| コマンド | 終了コード | 件数 |
+|---|---:|---|
+| `backend/`: `../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest tests/integration/api/test_purchase_uniqueness_rev2.py -q -rA` | 1 | 4 failed、3 passed（収集・DynamoDB Local・テーブル作成は成功） |
+| `frontend/`: `bun run test -- --run src/features/CreatePurchaseDialog.rev2.test.tsx` | 1 | 3 failed |
+
+| Plan ID | Test Case ID | 結果 | 失敗したアサーション | 理由 | 判定 |
+|---|---|---|---|---|---|
+| PURC-TDD-008 | PURC-024-TC2 | Fail | `results == {X: 201, Y: 201}` が `{X: 201, Y: 409}` | 削除が古い読み取り（組X）に基づき予約Xだけを消し、名前変更後の予約Yが孤立。一覧にないYが409になる | Valid Red |
+| PURC-TDD-009 | PURC-024-TC1 | Fail | `results == {Z: 409, X: 201, Y: 201}` が `Y: 409` | 2回目の名前変更が古い読み取り（組X）に基づき予約Xを消そうとし、予約Yが孤立。一覧にないYが409になる（一覧にあるZの409、Xの201は期待どおり） | Valid Red |
+| PURC-TDD-010 | PURC-022-TC1、PURC-023-TC1、PURC-023-TC2 | Pass（3件） | なし | 既存実装が削除・名前変更時の予約付け替えと編集時409（Aの編集前内容が一覧に残る）を満たす | 承認済みRed例外 |
+| PURC-TDD-011 | PURC-004-TC14 | Fail（`"true"`、`1`の2件） | `response.status_code == 422` が `201` | APIの`is_temporary`が真偽値以外を型変換して受け付ける | Valid Red |
+| PURC-TDD-012 | PURC-020-TC1 | Fail | 開き直した登録画面の`textContent`が初回表示と一致しない（`登録に失敗しました`が残る） | 失敗状態（mutationのerror）が閉じても初期化されない | Valid Red |
+| PURC-TDD-013 | PURC-021-TC1 | Fail | `waitFor(() => expect(fieldErrorText("name")).not.toBe(""))` がタイムアウト | APIの422が項目ごとに表示されず、共通の`登録に失敗しました`だけになる | Valid Red |
+| PURC-TDD-014 | PURC-016-TC1 | Fail | 重複を示す文言（`/重複\|既に/`）を持つ要素が0件（`expected 0 to be greater than 0`） | 409の判定が`detail`文言の完全一致に依存し、`"conflict"`では共通エラーになる | Valid Red |
+
+補足: PURC-TDD-014のハーネス健全性は、`detail`を現行文言（`同じ名前とカテゴリの購入物は既に存在します`）にした一時コピーで同テストが成功することで確認し、一時ファイルは削除した（コミットに含まない）。
+
+### 追加後のチェック
+
+| コマンド | 終了コード | 結果 |
+|---|---:|---|
+| Backend `uv run ruff format <新規ファイル>` / `uv run ruff check` / `uv run ruff format --check` | 0 / 0 / 0 | Pass（49 files formatted） |
+| Frontend `biome check --write <新規ファイル>` / `bun run lint` / `bun run format:check` | 0 / 0 / 0 | Pass |
+| `git status --short`（コミット前） | 0 | 新規テスト2ファイルだけ |
+
+### 凍結したTDDテスト
+
+- `backend/tests/integration/api/test_purchase_uniqueness_rev2.py`（PURC-TDD-008〜011）
+- `frontend/src/features/CreatePurchaseDialog.rev2.test.tsx`（PURC-TDD-012〜014）
+
+判定: `RED_VALIDATED`。Green担当は上記2ファイルを変更しない。
