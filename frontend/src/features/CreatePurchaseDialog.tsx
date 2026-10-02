@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -37,6 +38,38 @@ function quantity(emptyMessage: string) {
 		.max(100000, "100000以下を入力してください");
 }
 
+type CreatePurchaseFormField =
+	| "name"
+	| "category"
+	| "speed"
+	| "stock"
+	| "isTemporary";
+
+/** APIのフィールド名（リクエストボディ）から画面の入力項目への対応。 */
+const apiFieldToFormField: Record<string, CreatePurchaseFormField> = {
+	name: "name",
+	category: "category",
+	speed: "speed",
+	stock: "stock",
+	is_temporary: "isTemporary",
+};
+
+/** APIの422応答（`detail[].loc`）から、問題のある入力項目を取り出す。 */
+function invalidFormFields(error: unknown): CreatePurchaseFormField[] {
+	if (!(error instanceof ApiError) || error.status !== 422) return [];
+	const body = error.body;
+	if (!body || typeof body !== "object" || !("detail" in body)) return [];
+	if (!Array.isArray(body.detail)) return [];
+	const fields = new Set<CreatePurchaseFormField>();
+	for (const entry of body.detail) {
+		const loc: unknown = entry?.loc;
+		if (!Array.isArray(loc) || loc.length !== 2 || loc[0] !== "body") continue;
+		const formField = apiFieldToFormField[String(loc[1])];
+		if (formField) fields.add(formField);
+	}
+	return [...fields];
+}
+
 const createPurchaseFormSchema = z.object({
 	name: requiredText("名前を入力してください", 50),
 	category: requiredText("カテゴリを入力してください", 30),
@@ -56,6 +89,7 @@ export function CreatePurchaseDialog({
 		register,
 		handleSubmit,
 		reset,
+		setError,
 		formState: { errors },
 	} = useForm({
 		resolver: zodResolver(createPurchaseFormSchema),
@@ -69,11 +103,9 @@ export function CreatePurchaseDialog({
 	});
 	const createPurchase = useCreatePurchase();
 	const duplicateError =
-		createPurchase.error &&
-		typeof createPurchase.error === "object" &&
-		"detail" in createPurchase.error &&
-		createPurchase.error.detail ===
-			"同じ名前とカテゴリの購入物は既に存在します";
+		createPurchase.error instanceof ApiError &&
+		createPurchase.error.status === 409;
+	const fieldError = invalidFormFields(createPurchase.error).length > 0;
 
 	const onSubmit = handleSubmit((values) => {
 		createPurchase.mutate(
@@ -89,6 +121,11 @@ export function CreatePurchaseDialog({
 					reset();
 					onOpenChange(false);
 				},
+				onError: (error) => {
+					for (const formField of invalidFormFields(error)) {
+						setError(formField, { message: "入力内容を修正してください" });
+					}
+				},
 			},
 		);
 	});
@@ -97,7 +134,10 @@ export function CreatePurchaseDialog({
 		<Dialog
 			open={open}
 			onOpenChange={(next) => {
-				if (!next) reset();
+				if (!next) {
+					reset();
+					createPurchase.reset();
+				}
 				onOpenChange(next);
 			}}
 		>
@@ -155,11 +195,16 @@ export function CreatePurchaseDialog({
 						<input type="checkbox" {...register("isTemporary")} />
 						一時的な購入（定期購入しない）
 					</label>
+					{errors.isTemporary && (
+						<p className="text-destructive text-sm">
+							{errors.isTemporary.message}
+						</p>
+					)}
 
-					{createPurchase.isError && (
+					{createPurchase.isError && !fieldError && (
 						<p className="text-destructive text-sm">
 							{duplicateError
-								? "同じ名前とカテゴリの購入物は既に存在します"
+								? "同じ名前とカテゴリの購入物は既に存在します。名前またはカテゴリを変更してください"
 								: "登録に失敗しました"}
 						</p>
 					)}

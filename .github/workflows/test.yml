@@ -39,7 +39,5 @@ jobs:
       - run: bun install --frozen-lockfile
         working-directory: frontend
       # --run: watchモードに入らず1回だけ実行する
-      # --passWithNoTests: テストが0件でも成功扱いにする。frontendのテストを
-      #   書き始めたら外す（テストが消えたことに気づけなくなるため）
-      - run: bun run test -- --run --passWithNoTests
+      - run: bun run test -- --run
         working-directory: frontend

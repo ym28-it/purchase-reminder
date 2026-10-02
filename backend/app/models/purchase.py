@@ -7,6 +7,7 @@
 
 import hashlib
 import json
+from typing import Any
 from uuid import UUID
 
 from boto3.dynamodb.conditions import Key
@@ -15,7 +16,11 @@ from botocore.exceptions import ClientError
 from app.core.dynamodb import get_table
 from app.domain.purchase import Purchase
 from app.models.base import TimestampedItem
-from app.models.exceptions import ItemAlreadyExistsError, ItemNotFoundError
+from app.models.exceptions import (
+    ConditionalCheckFailedError,
+    ItemAlreadyExistsError,
+    ItemNotFoundError,
+)
 from app.models.keys import ItemKeySchema, KeyTemplate
 
 
@@ -84,7 +89,8 @@ def _duplicate_transaction(error: ClientError, reservation_index: int) -> bool:
 def create_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -> PurchaseItem:
     """購入物を新規作成する。
 
-    同じキー（``user_id``+``id``）のアイテムが既にあれば``ItemAlreadyExistsError``。
+    同じユーザーに同じ名前・カテゴリの購入物が既にあれば``ItemAlreadyExistsError``。
+    名前・カテゴリの予約を同じトランザクションで書き込み、同時登録でも重複を防ぐ。
     """
     table = get_table(table_name)
     # Pre-existing items may have been written before unique reservations existed.
@@ -138,78 +144,99 @@ def get_all_purchase_items(
     ]
 
 
+#: 読み取りから書き込みまでの間に他の操作が名前・カテゴリを変えたときの再試行回数。
+_MAX_WRITE_ATTEMPTS = 5
+
+
+def _read_current(table, key: dict[str, str], id: UUID) -> PurchaseItem:
+    """現在の購入物を強い整合性で読む。存在しなければ``ItemNotFoundError``。"""
+    response = table.get_item(Key=key, ConsistentRead=True)
+    if "Item" not in response:
+        raise ItemNotFoundError(f"購入物 {id}は存在しません。")
+    return PurchaseItem.from_item(response["Item"])
+
+
+def _unchanged_since_read(old: PurchaseItem) -> dict[str, Any]:
+    """本体の書き込み条件: 読み取った名前・カテゴリのまま存在している。
+
+    読み取り後に他の操作が名前・カテゴリを変えていれば条件が失敗し、
+    古い組の予約を消して新しい組の予約を孤立させる書き込みを防ぐ。
+    """
+    return {
+        "ConditionExpression": "attribute_exists(PK) AND #name = :name AND #category = :category",
+        "ExpressionAttributeNames": {"#name": "name", "#category": "category"},
+        "ExpressionAttributeValues": {":name": old.name, ":category": old.category},
+    }
+
+
 def put_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -> PurchaseItem:
     """購入物を更新する。
 
     同じキー（``user_id``+``id``）のアイテムが存在しなければ``ItemNotFoundError``。
+    別の購入物と同じ名前・カテゴリへ変更しようとした場合は``ItemAlreadyExistsError``。
+    読み取り後に他の操作が名前・カテゴリを変えていた場合は、読み直して再試行する。
     """
     table = get_table(table_name)
-    old_response = table.get_item(Key=item.key(), ConsistentRead=True)
-    if "Item" not in old_response:
-        raise ItemNotFoundError(f"購入物 {item.id}は存在しません。")
-    old = PurchaseItem.from_item(old_response["Item"])
-    changed = _unique_key(old) != _unique_key(item)
-    if changed and any(
-        existing.id != item.id and existing.name == item.name and existing.category == item.category
-        for existing in get_all_purchase_items(item.user_id, table_name=table_name, consistent=True)
-    ):
-        raise ItemAlreadyExistsError("同じ名前とカテゴリの購入物は既に存在します")
-    actions = [
-        {
-            "Put": {
-                "TableName": table.name,
-                "Item": item.to_item(),
-                "ConditionExpression": "attribute_exists(PK)",
-            }
-        }
-    ]
-    if changed:
-        actions.append({"Delete": {"TableName": table.name, "Key": _unique_key(old)}})
-        actions.append(
-            {
-                "Put": {
-                    "TableName": table.name,
-                    "Item": {**_unique_key(item), "EntityType": "PURCHASE_UNIQUE"},
-                    "ConditionExpression": "attribute_not_exists(PK)",
+    for _ in range(_MAX_WRITE_ATTEMPTS):
+        old = _read_current(table, item.key(), item.id)
+        changed = _unique_key(old) != _unique_key(item)
+        if changed and any(
+            existing.id != item.id
+            and existing.name == item.name
+            and existing.category == item.category
+            for existing in get_all_purchase_items(
+                item.user_id, table_name=table_name, consistent=True
+            )
+        ):
+            raise ItemAlreadyExistsError("同じ名前とカテゴリの購入物は既に存在します")
+        actions: list[dict[str, Any]] = [
+            {"Put": {"TableName": table.name, "Item": item.to_item(), **_unchanged_since_read(old)}}
+        ]
+        if changed:
+            actions.append({"Delete": {"TableName": table.name, "Key": _unique_key(old)}})
+            actions.append(
+                {
+                    "Put": {
+                        "TableName": table.name,
+                        "Item": {**_unique_key(item), "EntityType": "PURCHASE_UNIQUE"},
+                        "ConditionExpression": "attribute_not_exists(PK)",
+                    }
                 }
-            }
-        )
-    try:
-        table.meta.client.transact_write_items(TransactItems=actions)
-    except ClientError as error:
-        if changed and _duplicate_transaction(error, 2):
-            raise ItemAlreadyExistsError("同じ名前とカテゴリの購入物は既に存在します") from error
-        if _duplicate_transaction(error, 0):
-            raise ItemNotFoundError(f"購入物 {item.id}は存在しません。") from error
-        raise
-    return item
+            )
+        try:
+            table.meta.client.transact_write_items(TransactItems=actions)
+        except ClientError as error:
+            if changed and _duplicate_transaction(error, 2):
+                raise ItemAlreadyExistsError(
+                    "同じ名前とカテゴリの購入物は既に存在します"
+                ) from error
+            if _duplicate_transaction(error, 0):
+                continue  # 削除または名前・カテゴリの変更と競合した。読み直して判断する
+            raise
+        return item
+    raise ConditionalCheckFailedError(f"購入物 {item.id}の更新が競合し続けました。")
 
 
 def delete_purchase_item(user_id: str, id: UUID, *, table_name: str | None = None) -> None:
     """購入物を削除する。
 
     同じキー（``user_id``+``id``）のアイテムが存在しなければ``ItemNotFoundError``。
+    読み取り後に他の操作が名前・カテゴリを変えていた場合は、読み直して再試行する。
     """
     table = get_table(table_name)
     key = PurchaseItem.build_key(user_id=user_id, id=id)
-    old_response = table.get_item(Key=key, ConsistentRead=True)
-    if "Item" not in old_response:
-        raise ItemNotFoundError(f"購入物 {id}は存在しません。")
-    old = PurchaseItem.from_item(old_response["Item"])
-    try:
-        table.meta.client.transact_write_items(
-            TransactItems=[
-                {
-                    "Delete": {
-                        "TableName": table.name,
-                        "Key": key,
-                        "ConditionExpression": "attribute_exists(PK)",
-                    }
-                },
-                {"Delete": {"TableName": table.name, "Key": _unique_key(old)}},
-            ]
-        )
-    except ClientError as error:
-        if _duplicate_transaction(error, 0):
-            raise ItemNotFoundError(f"購入物 {id}は存在しません。") from error
-        raise
+    for _ in range(_MAX_WRITE_ATTEMPTS):
+        old = _read_current(table, key, id)
+        try:
+            table.meta.client.transact_write_items(
+                TransactItems=[
+                    {"Delete": {"TableName": table.name, "Key": key, **_unchanged_since_read(old)}},
+                    {"Delete": {"TableName": table.name, "Key": _unique_key(old)}},
+                ]
+            )
+        except ClientError as error:
+            if _duplicate_transaction(error, 0):
+                continue  # 削除または名前・カテゴリの変更と競合した。読み直して判断する
+            raise
+        return
+    raise ConditionalCheckFailedError(f"購入物 {id}の削除が競合し続けました。")

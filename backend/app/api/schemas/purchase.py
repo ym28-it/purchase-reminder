@@ -13,7 +13,7 @@ class PurchaseCreateRequest(BaseModel):
     category: str = Field(min_length=1, max_length=30)
     speed: int = Field(ge=0, le=100_000, strict=True, description="消費スピード")
     stock: int = Field(ge=0, le=100_000, strict=True, description="現在の在庫")
-    is_temporary: bool = Field(description="一時的な購入（必須）")
+    is_temporary: bool = Field(strict=True, description="一時的な購入（必須）")
 
     @field_validator("name", "category")
     @classmethod

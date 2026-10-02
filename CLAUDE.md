@@ -103,7 +103,7 @@ superpowers:brainstorming → [独自] design-tdd-tests → superpowers:writing-
 現在はmain pushとPRで次の2つのワークフローが動く。
 
 - `.github/workflows/lint.yml` — backendの `ruff check`/`ruff format --check` とfrontendの `bun run lint`/`bun run format:check`
-- `.github/workflows/test.yml` — backendのunit testとfrontendのVitest。frontendはまだテストが無いため `--passWithNoTests` を付けている（テストを書き始めたら外す）
+- `.github/workflows/test.yml` — backendのunit testとfrontendのVitest（`bun run test -- --run`。テストが0件なら失敗する）
 
 DynamoDB Localを使うintegration testは、`test.yml`のunit testへ混在させない。[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)に従い、Work・Claude Codeと同じMaven Wrapper、POM、Python実行ラッパーを`.github/workflows/integration.yml`から呼び出し、unitとintegrationを別checkとして表示する。Actions固有のサービスコンテナ起動処理は追加しない。E2EはTDD Green後に独立した`e2e.yml`として追加する。
 
