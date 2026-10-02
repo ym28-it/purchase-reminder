@@ -211,3 +211,39 @@ Core Contract GateおよびTest Plan Gate通過後にテストエージェント
 - [ ] Contract ID、仕様ID、Test Case IDの対応を維持した
 - [ ] TDD候補外のTest Case IDを実装後テストへ引き継いだ
 - [ ] 論理テストケースの参照版が変わっていない、または再承認した
+
+## 第2版の追加（ドラフト・承認待ち）
+
+> **状態: Draft。** この節はym28-itの承認待ちであり、承認前にRed / Greenへ進まない。
+
+仕様第2版（PURC-020〜024、文字数・数値型の明確化）と論理テストケース第2版（64件）は、2026-10-02にym28-itが承認した。この節は、追加・変更されたTest Case IDの中心的契約への割り当てと、最小TDDテストセットの案を定める。
+
+### 中心的契約への割り当て（案）
+
+| Contract ID | 追加するTest Case ID | 理由 |
+|---|---|---|
+| PURC-CORE-002 | PURC-004-TC13, PURC-004-TC14, PURC-004-TC15 | 入力領域の明確化（GAP-008、GAP-009） |
+| PURC-CORE-004 | PURC-022-TC1, PURC-023-TC1〜TC3, PURC-024-TC1, PURC-024-TC2 | 名前・カテゴリの一意性を登録以外の操作でも維持する（SCOPE-001） |
+| PURC-CORE-005（新設） | PURC-016-TC1, PURC-020-TC1, PURC-021-TC1 | 登録失敗の原因を利用者が識別でき、画面を開き直しても前回の失敗表示が残らない。原因の判定をメッセージ文言に依存させない |
+
+### 最小TDDテストセット（案）
+
+| Plan ID | Test Case ID | Contract ID | 役割 | テストレベル | 実テスト予定場所 | 変更前の期待状態 | 選定根拠 |
+|---|---|---|---|---|---|---|---|
+| PURC-TDD-008 | PURC-024-TC2 | PURC-CORE-004 | 重大反例 | API・DynamoDB統合 | `backend/tests/integration/api/test_purchase_uniqueness_rev2.py` | Red | 削除が読み取った後に名前が変更されると、変更後の組の予約が孤立し、一覧にない組が永久に409になる。読み取り結果を競合前の状態に差し替えて、競合を決定的に再現する |
+| PURC-TDD-009 | PURC-024-TC1 | PURC-CORE-004 | 重大反例 | API・DynamoDB統合 | 同上 | Red | 名前変更同士の競合で、先に確定した変更後の組の予約が孤立する。同じ方法で再現する |
+| PURC-TDD-010 | PURC-022-TC1, PURC-023-TC1, PURC-023-TC2 | PURC-CORE-004 | 代表回帰 | API・DynamoDB統合 | 同上 | Green（Red例外） | 削除・編集時の予約の付け替えと、編集時の409は既存実装（PR #30）が満たす可能性が高い。競合対策の実装で壊さないよう固定する |
+| PURC-TDD-011 | PURC-004-TC14 | PURC-CORE-002 | 重大反例 | API・永続化統合 | 同上 | Red | 一時的な購入に`"true"`を送ると、現状は受け付けてしまう |
+| PURC-TDD-012 | PURC-020-TC1 | PURC-CORE-005 | 変更目的 | Frontendコンポーネント | `frontend/src/features/CreatePurchaseDialog.rev2.test.tsx` | Red | 失敗後に閉じて開き直すと、前回の失敗表示が残る |
+| PURC-TDD-013 | PURC-021-TC1 | PURC-CORE-005 | 変更目的 | Frontendコンポーネント（HTTP層をモック） | 同上 | Red | APIの422が項目ごとに表示されない |
+| PURC-TDD-014 | PURC-016-TC1 | PURC-CORE-005 | 重大反例 | Frontendコンポーネント（HTTP層をモック） | 同上 | Red | 409の判定がメッセージ文言の完全一致に依存し、文言が違うと共通エラーになる |
+
+PURC-004-TC13（現行のstrict intで拒否済み）、PURC-004-TC15（DEFECT-003で修正済み）、PURC-023-TC3、および名前を変えない編集と名前変更の競合は、実装後テストで検証する。
+
+### Red例外（案）
+
+PURC-TDD-010は、競合対策の実装で壊しやすい既存挙動を固定する代表回帰である。変更前のコードでGreenでも正当なRed例外とする。それ以外の項目が変更前にGreenになった場合は`INVALID_RED`とする。
+
+### 承認記録（第2版）
+
+未承認。
