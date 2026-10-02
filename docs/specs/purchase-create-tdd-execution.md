@@ -167,3 +167,67 @@ PR #35の実装後検証（`docs/specs/purchase-create-post-test-report.md`）�
 - `frontend/src/features/CreatePurchaseDialog.rev2.test.tsx`（PURC-TDD-012〜014）
 
 判定: `RED_VALIDATED`。Green担当は上記2ファイルを変更しない。
+
+## 第2版 Green（2026-10-02）
+
+`implement-tdd-slice`で、第2版の凍結TDDテスト（PURC-TDD-008〜014）をGreenにした。テスト、テストfixture、仕様、論理テストケース、TDD計画は変更していない。
+
+- 開始SHA: `6a3de97`（`verify/purchase-create`、作業ツリーはclean）
+- 修正コミット: `e8afdab0488b757760404fb1151e60c84d465a7d`
+
+### 実装範囲
+
+- `backend/app/models/purchase.py`
+  - `put_purchase_item` / `delete_purchase_item`: 購入物本体のPut/Deleteの条件を「存在する」から「存在し、名前・カテゴリが読み取った値と一致する」へ変更した。条件が失敗した場合は`table.get_item`で読み直して最大5回まで再試行する（後勝ちの挙動を維持し、新しい利用者向けステータスは追加しない）。読み直しで存在しなければ`ItemNotFoundError`、再試行を使い切った場合は`ConditionalCheckFailedError`（既存の永続化例外。HTTPハンドラ未登録のため500）。名前を変えない更新も同じ条件を使うため、名前変更と競合した同名PUTでも予約は孤立しない。
+  - `create_purchase_item`のdocstringを、名前・カテゴリの重複で`ItemAlreadyExistsError`になる現行挙動へ更新した（UUID衝突は409の対象ではない）。
+- `backend/app/api/schemas/purchase.py`: `PurchaseCreateRequest.is_temporary`を`strict=True`にした（`PurchasePutRequest`は対象外のため変更なし）。
+- `frontend/src/api/client.ts`: HTTPステータスと応答本文を持つ`ApiError`を追加した。既存テストが`@/api/purchases`をモジュールごとモックするため、エラー型はモックされない`client.ts`に置いた。
+- `frontend/src/api/purchases.ts`: `createPurchase`は`!response.ok`のとき`ApiError(response.status, error)`を送出する。fetch自体の失敗（ネットワークエラー）はそのまま伝播し、共通エラー扱いになる。
+- `frontend/src/features/CreatePurchaseDialog.tsx`
+  - 閉じたときにフォームに加えてmutationの状態も`reset()`する（PURC-020）。
+  - 422の`detail[].loc`が`["body", <field>]`の項目を画面の入力項目（`is_temporary`→`isTemporary`）へ対応付け、`setError`で項目ごとに「入力内容を修正してください」を表示する。項目に対応付けられたときは共通エラーを出さず、ダイアログと入力値は維持する（PURC-021）。`isTemporary`の項目エラー表示欄を追加した。
+  - 重複は`ApiError`の`status === 409`で判定し、「同じ名前とカテゴリの購入物は既に存在します。名前またはカテゴリを変更してください」を表示する。それ以外の失敗は内部情報を含まない「登録に失敗しました」（PURC-016、PURC-017）。
+- `.github/workflows/test.yml`: frontendテストが存在するため`--passWithNoTests`とその説明コメントを削除した。
+- `CLAUDE.md`: CI節の`test.yml`の説明1行だけを更新した。
+- 編集ダイアログUI、その他の挙動は変更していない。
+
+### 実行結果
+
+| コマンド（backendは`backend/`から`../bin/mise exec --`経由） | 終了コード | 結果 |
+|---|---:|---|
+| `bash scripts/setup_host_prerequisites.sh --check` | 0 | mise 2026.9.12、Python 3.14.7、uv 0.12.18、Java 17.0.20.1 |
+| `uv run ruff format .` / `uv run ruff format --check .` | 0 / 0 | 49 files unchanged / already formatted |
+| `uv run ruff check .` | 0 | All checks passed |
+| `uv run pytest tests/unit -q` | 0 | 73 passed |
+| `uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest tests/integration -q` | 0 | 75 passed（Red時68件＋第2版7件。事後テストを含む） |
+| 同ランナーで`tests/integration/api/test_purchase_uniqueness_rev2.py -q -rA` | 0 | 7 passed |
+| Frontend `bun run check` / `bun run lint` / `bun run format:check` | 0 / 0 / 0 | Pass |
+| Frontend `bun run test -- --run` | 0 | 5 files、49 passed（事後テストを含む） |
+| Frontend `rm -f src/routeTree.gen.ts && bun run build` | 0 | built |
+| `bash e2e/run-e2e.sh`（リポジトリ直下） | 0 | 2 passed |
+
+補足: 名前変更と競合した同名PUT（予約が孤立しないこと）を、凍結テストと同じ古い読み取りの差し込み方で一時テストを作って確認し（1 passed）、一時ファイルは削除した（コミットに含まない）。正式な検証は検証タスクで行う。
+
+### 凍結テストの差分確認
+
+| コマンド | 結果 |
+|---|---|
+| `git diff 8e939a2 HEAD -- backend/tests/integration/api/test_purchase_uniqueness_rev2.py frontend/src/features/CreatePurchaseDialog.rev2.test.tsx` | 空 |
+| `git diff 15e48f6 HEAD -- backend/tests/integration/api/test_purchase_create.py frontend/src/features/Purchase.test.tsx frontend/src/features/CreatePurchaseDialog.test.tsx` | 空 |
+| `git diff 6a3de97 e8afdab --name-only` | プロダクトコード5件、`.github/workflows/test.yml`、`CLAUDE.md`のみ。テスト・事後テストの変更なし |
+
+### Plan IDごとの結果
+
+| Plan ID | Test Case ID | Red | Green | 備考 |
+|---|---|---|---|---|
+| PURC-TDD-008 | PURC-024-TC2 | Fail（Valid Red） | Pass | 削除の条件失敗→読み直しで組Yの予約を削除 |
+| PURC-TDD-009 | PURC-024-TC1 | Fail（Valid Red） | Pass | 名前変更の条件失敗→読み直しで組Yの予約を付け替え |
+| PURC-TDD-010 | PURC-022-TC1、PURC-023-TC1、PURC-023-TC2 | Pass（承認済みRed例外） | Pass（3件） | 回帰なし |
+| PURC-TDD-011 | PURC-004-TC14 | Fail（Valid Red） | Pass（2件） | `is_temporary`をstrict化 |
+| PURC-TDD-012 | PURC-020-TC1 | Fail（Valid Red） | Pass | 閉じるときにmutationをreset |
+| PURC-TDD-013 | PURC-021-TC1 | Fail（Valid Red） | Pass | 422の`loc`を項目エラーへ対応付け |
+| PURC-TDD-014 | PURC-016-TC1 | Fail（Valid Red） | Pass | 409をステータスで判定 |
+
+既存の事後テストで失敗したものはない。
+
+判定: `TDD_GREEN`。事後テスト・検証（verify-feature-slice）は未着手。
