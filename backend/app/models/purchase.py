@@ -23,6 +23,9 @@ from app.models.exceptions import (
 )
 from app.models.keys import ItemKeySchema, KeyTemplate
 
+#: 同じ利用者に名前・カテゴリが完全一致する購入物がある場合のメッセージ（APIの409応答）。
+DUPLICATE_PURCHASE_MESSAGE = "同じ名前とカテゴリの購入物は既に存在します"
+
 
 class PurchaseItem(TimestampedItem):
     """購入物1件分のDynamoDBアイテム。"""
@@ -98,7 +101,7 @@ def create_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -
         existing.name == item.name and existing.category == item.category
         for existing in get_all_purchase_items(item.user_id, table_name=table_name, consistent=True)
     ):
-        raise ItemAlreadyExistsError("同じ名前とカテゴリの購入物は既に存在します")
+        raise ItemAlreadyExistsError(DUPLICATE_PURCHASE_MESSAGE)
     try:
         table.meta.client.transact_write_items(
             TransactItems=[
@@ -120,7 +123,7 @@ def create_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -
         )
     except ClientError as error:
         if _duplicate_transaction(error, 1):
-            raise ItemAlreadyExistsError("同じ名前とカテゴリの購入物は既に存在します") from error
+            raise ItemAlreadyExistsError(DUPLICATE_PURCHASE_MESSAGE) from error
         raise
     return item
 
@@ -148,7 +151,7 @@ def get_all_purchase_items(
 _MAX_WRITE_ATTEMPTS = 5
 
 
-def _read_current(table, key: dict[str, str], id: UUID) -> PurchaseItem:
+def _read_current(table: Any, key: dict[str, str], id: UUID) -> PurchaseItem:
     """現在の購入物を強い整合性で読む。存在しなければ``ItemNotFoundError``。"""
     response = table.get_item(Key=key, ConsistentRead=True)
     if "Item" not in response:
@@ -188,7 +191,7 @@ def put_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -> P
                 item.user_id, table_name=table_name, consistent=True
             )
         ):
-            raise ItemAlreadyExistsError("同じ名前とカテゴリの購入物は既に存在します")
+            raise ItemAlreadyExistsError(DUPLICATE_PURCHASE_MESSAGE)
         actions: list[dict[str, Any]] = [
             {"Put": {"TableName": table.name, "Item": item.to_item(), **_unchanged_since_read(old)}}
         ]
@@ -206,12 +209,12 @@ def put_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -> P
         try:
             table.meta.client.transact_write_items(TransactItems=actions)
         except ClientError as error:
-            if changed and _duplicate_transaction(error, 2):
-                raise ItemAlreadyExistsError(
-                    "同じ名前とカテゴリの購入物は既に存在します"
-                ) from error
+            # 本体の条件失敗を先に判定する。同じ組への改名同士が競合した場合、後の要求は
+            # 自分自身の予約とも衝突するが、別の購入物との重複ではないので読み直して判断する。
             if _duplicate_transaction(error, 0):
                 continue  # 削除または名前・カテゴリの変更と競合した。読み直して判断する
+            if changed and _duplicate_transaction(error, 2):
+                raise ItemAlreadyExistsError(DUPLICATE_PURCHASE_MESSAGE) from error
             raise
         return item
     raise ConditionalCheckFailedError(f"購入物 {item.id}の更新が競合し続けました。")
