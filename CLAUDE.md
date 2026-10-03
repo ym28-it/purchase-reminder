@@ -14,13 +14,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。DynamoDBの汎用モデル基盤には単体テストがあるが、purchase CRUD、services、API、frontendのテストは未整備。Cognito認証、購入タイミングのドメインロジック、通知、Terraform、デプロイ、E2Eは未実装。開発ワークフローはsuperpowersへ移行し、TDD部分だけを独自制御としている。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
+ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。購入物登録スライス（仕様第2版、`docs/specs/purchase-create*.md`）は、TDDテスト、実装後テスト（Backend unit / DynamoDB Local integration、Frontend Vitest）、Playwright E2E（`e2e/run-e2e.sh`）まで整備済み。編集・削除の画面と操作、一覧の詳細仕様はまだ仕様化されていない。Cognito認証（現在は`dev-user`固定の仮実装）、購入タイミングのドメインロジック、通知、Terraform、デプロイ、integration / E2EのCIワークフローは未実装。開発ワークフローはsuperpowersへ移行し、TDD部分だけを独自制御としている。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
 
-### 現在の優先作業: superpowersで購入物登録の実装計画を作成
+### 現在の優先作業: 購入物登録スライスの完了判断
 
 テスト環境は`ENVIRONMENT_READY`であり、Work、Claude Code、Ubuntu/macOS Actionsで共通経路を確認済みである。[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)と[Environment Gate実行証跡](docs/test-environment-gate-evidence.md)を環境契約のsource of truthとする。環境コードまたはテスト基盤を変更した場合だけ、同じGateを再実行して人間の再承認を得る。環境の確認・修復には独立した`setup-test-environment` Skillを使用する。
 
-購入物登録（`docs/specs/purchase-create*.md`）は仕様、論理テストケース、中心的契約、最小TDD計画が承認済みである。次は`superpowers:writing-plans`で、この承認済み成果物を入力とした実装計画を作成する。人間が計画を承認して実行方式を選択するまで、テストコードやプロダクトコードを変更しない。
+購入物登録は、PR #35で仕様第2版の実装、実装後検証、superpowersの最終コードレビューまで完了している。人間がSlice Complete（マージ）を判断した後は、`docs/todo/test-environment-rollout.md`の後続項目（integration / E2EのCIワークフロー）や、編集・削除など次の垂直スライスへ進む。新しいスライスは`superpowers:brainstorming`から始める。
 
 ## 開発ワークフロー（superpowers＋独自TDD）
 

@@ -231,3 +231,23 @@ PR #35の実装後検証（`docs/specs/purchase-create-post-test-report.md`）�
 既存の事後テストで失敗したものはない。
 
 判定: `TDD_GREEN`。事後テスト・検証（verify-feature-slice）は未着手。
+
+## 最終コードレビュー（第2版）Minorへの対応（2026-10-03・局所変更）
+
+PR #35の最終コードレビュー（第2版、判定 Ready to merge: Yes）のMinor 3件を、ym28-itの指示で修正した。仕様・論理テストケースは変更していない。Minor 1は`docs/TDD-WORKFLOW.md`の「局所変更」として、再発防止テストのValid Redを確認してから修正した。
+
+| Minor | 対応 | コミット |
+|---|---|---|
+| 1. 同じ購入物を同じ組へ改名する要求が競合すると、後の要求が自分自身との重複として409になる（PURC-023の「別の購入物」と不一致） | 回帰テスト`backend/tests/integration/api/test_purchase_rename_self_race.py`を追加（Red: `assert 409 == 200`）。`put_purchase_item`で本体の条件失敗（index 0）を予約衝突（index 2）より先に判定し、読み直して成功させる | テスト `f275bf8`、修正 `cc486f7` |
+| 2. `CLAUDE.md`の「Current state」が古い | 購入物登録スライスの整備状況と次の作業に更新 | この記録と同じコミット |
+| 3. 型注釈の不足、重複メッセージ文字列の4か所の重複 | `_read_current`の`table`に型注釈を付け、`DUPLICATE_PURCHASE_MESSAGE`定数にまとめた | `cc486f7` |
+
+| コマンド（`backend/`、`../bin/mise exec --`経由） | 終了コード | 結果 |
+|---|---:|---|
+| 修正前 `run_with_dynamodb_local -- pytest tests/integration/api/test_purchase_rename_self_race.py` | 1 | 1 failed（`assert 409 == 200`、assertion到達後の失敗。Valid Red） |
+| `ruff format --check .` / `ruff check .` | 0 / 0 | 51 files formatted、All checks passed |
+| `pytest -m "not integration" -q` | 0 | 73 passed |
+| `run_with_dynamodb_local -- pytest -m integration -q` | 0 | API ready PASS、90 passed（新しい回帰テストを含む） |
+| 凍結TDDテストの差分確認（`15e48f6`、`8e939a2`） | 0 | 差分なし |
+
+Frontendは変更していない。
