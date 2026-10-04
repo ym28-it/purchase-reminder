@@ -82,6 +82,9 @@ export function Purchase() {
 										<p className="text-muted-foreground text-xs">
 											{purchase.category}
 										</p>
+										<p className="text-muted-foreground text-xs">
+											消費スピード {purchase.speed}
+										</p>
 									</div>
 								</div>
 								<div className="flex shrink-0 items-center gap-1.5">
