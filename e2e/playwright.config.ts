@@ -16,6 +16,7 @@ export default defineConfig({
 	use: {
 		baseURL: `http://localhost:${WEB_PORT}`,
 		trace: "retain-on-failure",
+		screenshot: "only-on-failure",
 		...devices["Desktop Chrome"],
 	},
 	webServer: [
@@ -25,6 +26,9 @@ export default defineConfig({
 			url: `http://127.0.0.1:${API_PORT}/openapi.json`,
 			reuseExistingServer: false,
 			timeout: 120_000,
+			// 失敗時の調査用に、APIのログもテストの出力（CIのジョブログ）へ流す
+			stdout: "pipe",
+			stderr: "pipe",
 		},
 		{
 			command: `bun run dev --host localhost --port ${WEB_PORT} --strictPort`,
@@ -32,6 +36,8 @@ export default defineConfig({
 			url: `http://localhost:${WEB_PORT}`,
 			reuseExistingServer: false,
 			timeout: 120_000,
+			stdout: "pipe",
+			stderr: "pipe",
 			env: { VITE_API_BASE_URL: `http://localhost:${API_PORT}` },
 		},
 	],

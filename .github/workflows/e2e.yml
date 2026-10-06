@@ -1,0 +1,58 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # DynamoDB LocalのMaven依存だけをキャッシュする（ログはキャッシュしない）
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .cache/dynamodb-local
+            !.cache/dynamodb-local/*/logs
+          key: dynamodb-local-${{ runner.os }}-${{ hashFiles('tools/java-runtime/pom.xml', '.mvn/wrapper/maven-wrapper.properties') }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/bun.lock') }}
+      # Work・Claude Codeと同じ経路でmise / uv / Java 17 / Python 3.14.7を導入する
+      - run: bash scripts/setup_host_prerequisites.sh --install
+      - run: bash scripts/setup_host_prerequisites.sh --check
+      - run: ../bin/mise exec -- uv sync --python 3.14.7 --frozen
+        working-directory: backend
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - run: bun install --frozen-lockfile
+        working-directory: e2e
+      - run: bunx playwright install --with-deps chromium
+        working-directory: e2e
+      # Chromium → Vite → FastAPI → DynamoDB Local。承認済みランナーの上で
+      # run-e2e.shがAPIとViteを起動する。認証は現在dev-user固定の仮実装なので、
+      # Cognitoの認証情報は使わない。
+      - run: bash e2e/run-e2e.sh
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: |
+            e2e/test-results/
+            .cache/dynamodb-local/*/logs/
+          if-no-files-found: ignore
+          retention-days: 7
