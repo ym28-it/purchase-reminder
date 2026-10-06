@@ -1,0 +1,45 @@
+name: Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # DynamoDB LocalのMaven依存だけをキャッシュする（ログはキャッシュしない）
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .cache/dynamodb-local
+            !.cache/dynamodb-local/*/logs
+          key: dynamodb-local-${{ runner.os }}-${{ hashFiles('tools/java-runtime/pom.xml', '.mvn/wrapper/maven-wrapper.properties') }}
+      # Work・Claude Codeと同じ経路でmise / uv / Java 17 / Python 3.14.7を導入する
+      - run: bash scripts/setup_host_prerequisites.sh --install
+      - run: bash scripts/setup_host_prerequisites.sh --check
+      - run: ../bin/mise exec -- uv sync --python 3.14.7 --frozen
+        working-directory: backend
+      # 承認済みランナーが一時テーブルを作り、DynamoDB Localを起動・停止する。
+      # Actions固有の起動処理は持たず、AWS credentialも使わない。
+      - run: >-
+          ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local
+          -- ../bin/mise exec -- uv run pytest -m integration -q
+        working-directory: backend
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-dynamodb-local-logs
+          path: .cache/dynamodb-local/*/logs/
+          if-no-files-found: ignore
+          retention-days: 7

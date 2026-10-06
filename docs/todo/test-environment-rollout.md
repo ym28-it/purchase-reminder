@@ -510,7 +510,7 @@ test: complete purchase creation post-implementation verification
 11. 承認済み購入物登録TDDテストとValid Red
 12. 購入物登録の垂直スライス実装とTDD Green
 13. 実装後テスト、代表E2E、superpowersの最終コードレビュー
-14. GitHub Actions integration / E2E
+14. [x] GitHub Actions integration / E2E（`integration.yml`、`e2e.yml`。必須checkとしてのbranch protection登録は人間が行う）
 
 ### 後続
 
