@@ -14,7 +14,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。購入物登録スライス（仕様第2版、`docs/specs/purchase-create*.md`）は、TDDテスト、実装後テスト（Backend unit / DynamoDB Local integration、Frontend Vitest）、Playwright E2E（`e2e/run-e2e.sh`）まで整備済み。編集・削除の画面と操作、一覧の詳細仕様はまだ仕様化されていない。Cognito認証（現在は`dev-user`固定の仮実装）、購入タイミングのドメインロジック、通知、Terraform、デプロイ、integration / E2EのCIワークフローは未実装。開発ワークフローはsuperpowersへ移行し、TDD部分だけを独自制御としている。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
+ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。購入物登録スライス（仕様第2版、`docs/specs/purchase-create*.md`）は、TDDテスト、実装後テスト（Backend unit / DynamoDB Local integration、Frontend Vitest）、Playwright E2E（`e2e/run-e2e.sh`）まで整備済み。編集・削除の画面と操作、一覧の詳細仕様はまだ仕様化されていない。Cognito認証（現在は`dev-user`固定の仮実装）、購入タイミングのドメインロジック、LINE通知と購入報告、Terraform、デプロイ、integration / E2EのCIワークフローは未実装。開発ワークフローはsuperpowersへ移行し、TDD部分だけを独自制御としている。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
+
+### 決定済みの通知・認証方針
+
+通知・購入報告・認証の方針はREADME.mdの「通知・認証の方針（採用済み・未実装）」で決定済みであり、各スライスの仕様はこれを前提にする。
+
+- 通知と購入報告はLINE Messaging APIで行う（平日夕方に1日1通のまとめpush、品目ごとに「買った」（デフォルト数量）と「数量を指定して買った」のpostbackボタン）。LINEは通知の受け皿としてだけ使う
+- Webアプリの認証はCognito User Poolとする。LINEログイン（LIFF）、OAuth/OIDCの外部IdP、パスキー（WebAuthn）は将来の学習テーマであり、仕様化するまで実装しない
+- 次の垂直スライスは①購入タイミングのドメインロジック ②LINE通知と購入報告 ③Cognito認証の順に進める
+- LINE Messaging APIの調査結果と未確認事項は`docs/research/line-messaging-api.md`にある。②の仕様作成時に公式ドキュメントで再確認する
 
 ### 現在の優先作業: 購入物登録スライスの完了判断
 
