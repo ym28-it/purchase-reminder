@@ -6,7 +6,9 @@
 |---|---|
 | 対応仕様 | `docs/superpowers/specs/2026-11-12-purchase-timing-fields-design.md`（PTF、2026-11-22承認） |
 | 関連仕様 | `docs/specs/purchase-create.md`（PURC第3版） |
-| 状態 | Draft |
+| 状態 | Approved |
+| 承認者 | ym28-it |
+| 承認日 | 2026-11-22 |
 | 作成日 | 2026-11-22 |
 
 ## 1. 目的
