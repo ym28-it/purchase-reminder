@@ -194,7 +194,7 @@ PUTの入力が7項目の完全置き換えに変わるため、次の既存テ�
 - 環境スモーク・Baselineの結果: 変更前 unit 79 passed、integration 145 passed。Red後 unit 79 passed（変更なし）、integration 33 failed / 147 passed（新規`test_purchase_edit_fields.py`のみがFAIL、既存テストの新規FAILなし、収集・import失敗なし）。失敗した33件の内訳は上表。統合テスト総数は180（旧145から、削除`test_ptf_tdd_012_*`、`[2.0]`行の整数化による除去、新規約37件の追加）。実行コマンド: `DYNAMODB_LOCAL_PORT=18001 ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest -m integration -q`（`backend/`、終了コード1）
 - 書き直した既存テスト: `test_purchase_ptf.py`（010・011を7項目へ、`test_ptf_tdd_012_*`を削除）、`test_purchase_ptf_post.py`（`put_body`に`unit`・`buffer_days`、在庫`2.0`を整数`2`へ）。`test_purchase_rev2_post.py`、`test_purchase_uniqueness_rev2.py`、`test_purchase_rename_self_race.py`の`payload()`は既に7項目のため変更なし
 - 凍結したテストファイル: `backend/tests/integration/api/test_purchase_edit_fields.py`
-- Red記録コミットSHA: (下記コミット後に追記)
+- Red記録コミットSHA: `7261023`
 
 ### Green
 
