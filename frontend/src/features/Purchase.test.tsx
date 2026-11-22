@@ -75,4 +75,5 @@ test("PURC-TDD-002 (PURC-011-TC1, 012-TC1, 004-TC12; CORE-001/002): zero-days cr
 	expect(item).not.toBeNull();
 	expect(item).toHaveTextContent("食品");
 	expect(item).toHaveTextContent("2パック");
+	expect(item).toHaveTextContent("1パック0日");
 });

@@ -225,7 +225,8 @@ PURC第2版の既存テスト（凍結済みTDDテストを含む）のうち、
   - `CreatePurchaseDialog.rev2.post.test.tsx`: 基準入力と`speed`→`days`の改名。API 422の`loc`を`days_per_unit`へ。項目別エラー確認の対象に新項目を追加
   - `Purchase.post.test.tsx`: モックのレスポンスと入力・送信本文に新項目を追加し（余裕日数は保持確認のため2を入力）、`speed`→`days`の改名。関数名・テスト名の「5項目」表現を改称
 - 凍結したテストファイル: `frontend/src/features/CreatePurchaseDialog.ptf.test.tsx`、`frontend/src/features/Purchase.ptf.test.tsx`
-- Red記録コミットSHA: 本コミット（`git log`で確認）
+- 修正ラウンド（レビュー指摘）: `Purchase.test.tsx`（PURC-TDD-002）に日数表示`1パック0日`の確認をPTF-015-TC2の形式の機械的適用として復元。`CreatePurchaseDialog.post.test.tsx`のcreatePurchaseモックへ必須の`stock_counted_at`を追加（`bunx tsc -b`で`*.test.tsx`の型エラー0件を確認）。対象テストは引き続き未実装を理由に失敗（36 failed）
+- Red記録コミットSHA: 本コミット（`git log`で確認。修正ラウンド後の再コミットを含む）
 
 ### Green
 

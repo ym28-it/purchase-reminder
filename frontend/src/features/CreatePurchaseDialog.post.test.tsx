@@ -40,6 +40,7 @@ beforeEach(() => {
 		...input,
 		is_temporary: input.is_temporary ?? false,
 		id: "aef5de6b-046d-48d2-a84b-df6c989643d0",
+		stock_counted_at: "2026-09-27T00:00:00Z",
 		created_at: "2026-09-27T00:00:00Z",
 		updated_at: "2026-09-27T00:00:00Z",
 	}));
