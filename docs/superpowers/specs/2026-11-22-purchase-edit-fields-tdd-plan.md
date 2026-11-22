@@ -212,7 +212,7 @@ PUTの入力が7項目の完全置き換えに変わるため、次の既存テ�
 - 環境スモーク・Baselineの結果: 変更前 97 passed。Red後 12 failed / 96 passed（108件）。失敗12件は新規11件（TC1/TC2が1、TC4が1、TC1のtest.each 8、TC2が1）と書き直したPEDT-010-TC1の1件で、それ以外の既存96件の新規FAILはなく、収集・import失敗もない。`bun run lint`・`bun run format:check`は通過。実行コマンド: `bun run test -- --run`（`frontend/`、終了コード1）
 - 書き直した既存テスト: `Purchase.ptf.post.test.tsx`の`PTF-012-TC1 (UI side)`を`PEDT-010-TC1`へ（PUTボディが7項目で、`unit`・`buffer_days`が保存済みの値のまま）。`PTF-012-TC2`は変更なし
 - 凍結したテストファイル: `frontend/src/features/Purchase.edit.test.tsx`、`frontend/src/features/Purchase.ptf.post.test.tsx`のPEDT-010-TC1
-- Red記録コミットSHA: 本コミット（Backend Redの`7261023`とは別。SHAは後続コミットで追記）
+- Red記録コミットSHA: `ab0ca60`（Backend Redの`7261023`とは別）
 
 ### Green
 
