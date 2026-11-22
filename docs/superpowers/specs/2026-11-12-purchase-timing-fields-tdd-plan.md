@@ -219,7 +219,7 @@ PURC第2版の既存テスト（凍結済みTDDテストを含む）のうち、
 - 型検査（`bun run build`）はschema.d.tsの更新で製品コードが失敗する想定のためTask 4で対応し、本タスクでは実行しない
 - PURC第3版への読み替え（人間承認済み、凍結済みPURC TDDテストを含む。変更点は基準入力の置換、`speed`→`days_per_unit`の改名、ラベル（購入単位`/^購入単位/`、日数`/使い切る日数/`、余裕日数`/余裕日数/`、在庫`/^在庫/`）の読み替え、モックのレスポンスと送信本文への新項目の追加のみ。下記以外の期待値は変えていない）:
   - `CreatePurchaseDialog.test.tsx`（PURC-TDD-003）: 消費スピードのラベルを`/使い切る日数/`へ
-  - `Purchase.test.tsx`（PURC-TDD-002）: 入力・送信本文・レスポンスをPTFの項目へ。表示確認は`消費スピード 0`・`在庫 2`を、PTF-015の表示`2パック`へ置換（日数0の表示は論理テストケースで定義されないため断定しない）
+  - `Purchase.test.tsx`（PURC-TDD-002）: 入力・送信本文・レスポンスをPTFの項目へ。表示確認は`消費スピード 0`・`在庫 2`を、PTF-015の表示`2パック`へ置換（日数0の表示`1パック0日`は、修正ラウンドでPTF-015-TC2の形式（「1パック3日」）の機械的適用として確認を復元した）
   - `CreatePurchaseDialog.rev2.test.tsx`（PURC-TDD-012〜014）: 基準入力に購入単位を追加し、`speed`→`days`の改名。初期値・入力保持・無関係な項目にエラーがないことの確認に新項目を追加
   - `CreatePurchaseDialog.post.test.tsx`: 基準入力と`speed`→`days`の改名。PURC-004-TC7（0・365）、TC8（負数・小数・366）の範囲を365上限へ。送信本文に`unit`・`buffer_days`を追加。初期値の確認を7項目へ（PTF-001-TC1、PTF-003-TC1）
   - `CreatePurchaseDialog.rev2.post.test.tsx`: 基準入力と`speed`→`days`の改名。API 422の`loc`を`days_per_unit`へ。項目別エラー確認の対象に新項目を追加

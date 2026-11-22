@@ -116,6 +116,18 @@ describe("PURC-002: registration form", () => {
 	});
 });
 
+describe("PTF-010-TC1: labels explain days, buffer days and stock", () => {
+	test("the labels name what each value means", () => {
+		renderDialog();
+		expect(field("days").labels?.[0]).toHaveTextContent(
+			/1単位.*使い切る日数.*日/,
+		);
+		expect(field("buffer").labels?.[0]).toHaveTextContent(/余裕日数.*日/);
+		expect(field("stock").labels?.[0]).toHaveTextContent(/購入単位/);
+		expect(field("unit").labels?.[0]).toHaveTextContent(/購入単位/);
+	});
+});
+
 describe("PURC-003-TC1 / PURC-004 / PURC-016-TC2: invalid input is not sent", () => {
 	test.each<[string, FieldKey, string]>([
 		["PURC-004-TC1 empty name", "name", ""],
@@ -132,6 +144,14 @@ describe("PURC-003-TC1 / PURC-004 / PURC-016-TC2: invalid input is not sent", ()
 		["PURC-004-TC8 negative days", "days", "-1"],
 		["PURC-004-TC8 decimal days", "days", "1.5"],
 		["PURC-004-TC8 over-limit days", "days", "366"],
+		["PTF-005-TC4 negative buffer days", "buffer", "-1"],
+		["PTF-005-TC4 decimal buffer days", "buffer", "1.5"],
+		["PTF-005-TC4 over-limit buffer days", "buffer", "31"],
+		["PTF-014-TC2 empty unit", "unit", ""],
+		["PTF-014-TC2 ASCII spaces unit", "unit", "   "],
+		["PTF-014-TC2 U+3000 unit", "unit", IDEOGRAPHIC_SPACE],
+		["PTF-014-TC4 11 character unit", "unit", "あ".repeat(11)],
+		["PTF-014-TC4 11 surrogate unit", "unit", SURROGATE.repeat(11)],
 		["PURC-004-TC10 negative stock", "stock", "-1"],
 		["PURC-004-TC10 decimal stock", "stock", "1.5"],
 		["PURC-004-TC10 over-limit stock", "stock", "100001"],
@@ -163,6 +183,15 @@ describe("PURC-004: accepted boundaries are sent unchanged", () => {
 		["PURC-004-TC5 30 ASCII category", { category: "x".repeat(30) }, false],
 		["PURC-004-TC7 days 0", { days: "0" }, false],
 		["PURC-004-TC7 days 365", { days: "365" }, false],
+		["PTF-003-TC2 buffer days 0", { buffer: "0" }, false],
+		["PTF-003-TC2 buffer days 30", { buffer: "30" }, false],
+		["PTF-014-TC3 10 character unit", { unit: "あ".repeat(10) }, false],
+		["PTF-014-TC3 10 surrogate unit", { unit: SURROGATE.repeat(10) }, false],
+		[
+			"PTF-014-TC5 surrounding spaces unit is kept",
+			{ unit: " パック " },
+			false,
+		],
 		["PURC-004-TC9 stock 0", { stock: "0" }, false],
 		["PURC-004-TC9 stock 100000", { stock: "100000" }, false],
 		["PURC-004-TC11 temporary with days 0", { days: "0" }, true],
