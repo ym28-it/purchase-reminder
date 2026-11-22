@@ -23,8 +23,8 @@ test("PURC-TDD-003 (PURC-003-TC1; CORE-002): whitespace-only name shows a field 
 
 	await user.type(screen.getByLabelText("名前"), "   ");
 	await user.type(screen.getByLabelText("カテゴリ"), "食品");
-	await user.clear(screen.getByLabelText(/消費スピード/));
-	await user.type(screen.getByLabelText(/消費スピード/), "1");
+	await user.clear(screen.getByLabelText(/使い切る日数/));
+	await user.type(screen.getByLabelText(/使い切る日数/), "1");
 	await user.click(screen.getByRole("button", { name: "登録する" }));
 
 	const nameField = screen.getByLabelText("名前").parentElement;

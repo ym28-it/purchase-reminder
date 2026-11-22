@@ -17,7 +17,7 @@ import { usePutPurchase } from "@/hooks/usePurchases";
 const editPurchaseFormSchema = z.object({
 	name: z.string().min(1, "名前を入力してください"),
 	category: z.string().min(1, "カテゴリを入力してください"),
-	speed: z.coerce.number().positive("0より大きい値を入力してください"),
+	daysPerUnit: z.coerce.number().positive("0より大きい値を入力してください"),
 	stock: z.coerce.number().min(0, "0以上を入力してください"),
 	isTemporary: z.boolean(),
 });
@@ -42,7 +42,7 @@ export function EditPurchaseDialog({
 			? {
 					name: purchase.name,
 					category: purchase.category,
-					speed: purchase.speed,
+					daysPerUnit: purchase.days_per_unit,
 					stock: purchase.stock,
 					isTemporary: purchase.is_temporary,
 				}
@@ -58,7 +58,7 @@ export function EditPurchaseDialog({
 				input: {
 					name: values.name,
 					category: values.category,
-					speed: values.speed,
+					days_per_unit: values.daysPerUnit,
 					stock: values.stock,
 					is_temporary: values.isTemporary,
 				},
@@ -94,15 +94,19 @@ export function EditPurchaseDialog({
 					</div>
 
 					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="edit-speed">消費スピード（個/日）</Label>
+						<Label htmlFor="edit-days-per-unit">
+							1単位を使い切る日数（日）
+						</Label>
 						<Input
-							id="edit-speed"
+							id="edit-days-per-unit"
 							type="number"
 							step="any"
-							{...register("speed")}
+							{...register("daysPerUnit")}
 						/>
-						{errors.speed && (
-							<p className="text-destructive text-sm">{errors.speed.message}</p>
+						{errors.daysPerUnit && (
+							<p className="text-destructive text-sm">
+								{errors.daysPerUnit.message}
+							</p>
 						)}
 					</div>
 

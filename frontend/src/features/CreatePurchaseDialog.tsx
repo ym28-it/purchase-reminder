@@ -30,18 +30,20 @@ function requiredText(emptyMessage: string, maxLength: number) {
 }
 
 /** 空欄はNaNになり、0として送らずに入力エラーにする。 */
-function quantity(emptyMessage: string) {
+function quantity(emptyMessage: string, max = 100000) {
 	return z
 		.number({ error: emptyMessage })
 		.int("整数を入力してください")
 		.min(0, "0以上を入力してください")
-		.max(100000, "100000以下を入力してください");
+		.max(max, `${max}以下を入力してください`);
 }
 
 type CreatePurchaseFormField =
 	| "name"
 	| "category"
-	| "speed"
+	| "unit"
+	| "daysPerUnit"
+	| "bufferDays"
 	| "stock"
 	| "isTemporary";
 
@@ -49,7 +51,9 @@ type CreatePurchaseFormField =
 const apiFieldToFormField: Record<string, CreatePurchaseFormField> = {
 	name: "name",
 	category: "category",
-	speed: "speed",
+	unit: "unit",
+	days_per_unit: "daysPerUnit",
+	buffer_days: "bufferDays",
 	stock: "stock",
 	is_temporary: "isTemporary",
 };
@@ -73,8 +77,10 @@ function invalidFormFields(error: unknown): CreatePurchaseFormField[] {
 const createPurchaseFormSchema = z.object({
 	name: requiredText("名前を入力してください", 50),
 	category: requiredText("カテゴリを入力してください", 30),
-	speed: quantity("消費スピードを入力してください"),
-	stock: quantity("現在の在庫を入力してください"),
+	unit: requiredText("購入単位を入力してください", 10),
+	daysPerUnit: quantity("1単位を使い切る日数を入力してください", 365),
+	bufferDays: quantity("余裕日数を入力してください", 30),
+	stock: quantity("在庫を入力してください"),
 	isTemporary: z.boolean(),
 });
 
@@ -96,7 +102,9 @@ export function CreatePurchaseDialog({
 		defaultValues: {
 			name: "",
 			category: "",
-			speed: 0,
+			unit: "",
+			daysPerUnit: 0,
+			bufferDays: 0,
 			stock: 0,
 			isTemporary: false,
 		},
@@ -112,7 +120,9 @@ export function CreatePurchaseDialog({
 			{
 				name: values.name,
 				category: values.category,
-				speed: values.speed,
+				unit: values.unit,
+				days_per_unit: values.daysPerUnit,
+				buffer_days: values.bufferDays,
 				stock: values.stock,
 				is_temporary: values.isTemporary,
 			},
@@ -166,20 +176,47 @@ export function CreatePurchaseDialog({
 					</div>
 
 					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="create-speed">消費スピード（個/日）</Label>
-						<Input
-							id="create-speed"
-							type="number"
-							step="any"
-							{...register("speed", { valueAsNumber: true })}
-						/>
-						{errors.speed && (
-							<p className="text-destructive text-sm">{errors.speed.message}</p>
+						<Label htmlFor="create-unit">購入単位（パック、本など）</Label>
+						<Input id="create-unit" {...register("unit")} />
+						{errors.unit && (
+							<p className="text-destructive text-sm">{errors.unit.message}</p>
 						)}
 					</div>
 
 					<div className="flex flex-col gap-1.5">
-						<Label htmlFor="create-stock">現在の在庫</Label>
+						<Label htmlFor="create-days-per-unit">
+							1単位を使い切る日数（日）
+						</Label>
+						<Input
+							id="create-days-per-unit"
+							type="number"
+							step="any"
+							{...register("daysPerUnit", { valueAsNumber: true })}
+						/>
+						{errors.daysPerUnit && (
+							<p className="text-destructive text-sm">
+								{errors.daysPerUnit.message}
+							</p>
+						)}
+					</div>
+
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor="create-buffer-days">余裕日数（日）</Label>
+						<Input
+							id="create-buffer-days"
+							type="number"
+							step="any"
+							{...register("bufferDays", { valueAsNumber: true })}
+						/>
+						{errors.bufferDays && (
+							<p className="text-destructive text-sm">
+								{errors.bufferDays.message}
+							</p>
+						)}
+					</div>
+
+					<div className="flex flex-col gap-1.5">
+						<Label htmlFor="create-stock">在庫（購入単位の数）</Label>
 						<Input
 							id="create-stock"
 							type="number"

@@ -13,19 +13,23 @@ vi.mock("@/api/purchases", () => ({ createPurchase: vi.fn() }));
 const SURROGATE = "\u{20BB7}"; // 𠮷: one character, two UTF-16 code units
 const IDEOGRAPHIC_SPACE = "　";
 
-type FieldKey = "name" | "category" | "speed" | "stock";
+type FieldKey = "name" | "category" | "unit" | "days" | "buffer" | "stock";
 
 const label: Record<FieldKey, RegExp> = {
 	name: /^名前$/,
 	category: /^カテゴリ$/,
-	speed: /消費スピード/,
-	stock: /現在の在庫/,
+	unit: /^購入単位/,
+	days: /使い切る日数/,
+	buffer: /余裕日数/,
+	stock: /^在庫/,
 };
 
 const validInput: Record<FieldKey, string> = {
 	name: "牛乳",
 	category: "食品",
-	speed: "1",
+	unit: "パック",
+	days: "1",
+	buffer: "0",
 	stock: "2",
 };
 
@@ -36,6 +40,7 @@ beforeEach(() => {
 		...input,
 		is_temporary: input.is_temporary ?? false,
 		id: "aef5de6b-046d-48d2-a84b-df6c989643d0",
+		stock_counted_at: "2026-09-27T00:00:00Z",
 		created_at: "2026-09-27T00:00:00Z",
 		updated_at: "2026-09-27T00:00:00Z",
 	}));
@@ -99,13 +104,27 @@ async function expectRejected(key: FieldKey) {
 }
 
 describe("PURC-002: registration form", () => {
-	test("PURC-002-TC1/TC2: five inputs exist with the approved initial values", () => {
+	test("PURC-002-TC1/TC2 (PTF-001-TC1, PTF-003-TC1): seven inputs exist with the approved initial values", () => {
 		renderDialog();
 		expect(field("name")).toHaveValue("");
 		expect(field("category")).toHaveValue("");
-		expect(field("speed")).toHaveValue(0);
+		expect(field("unit")).toHaveValue("");
+		expect(field("days")).toHaveValue(0);
+		expect(field("buffer")).toHaveValue(0);
 		expect(field("stock")).toHaveValue(0);
 		expect(screen.getByLabelText(/一時的な購入/)).not.toBeChecked();
+	});
+});
+
+describe("PTF-010-TC1: labels explain days, buffer days and stock", () => {
+	test("the labels name what each value means", () => {
+		renderDialog();
+		expect(field("days").labels?.[0]).toHaveTextContent(
+			/1単位.*使い切る日数.*日/,
+		);
+		expect(field("buffer").labels?.[0]).toHaveTextContent(/余裕日数.*日/);
+		expect(field("stock").labels?.[0]).toHaveTextContent(/購入単位/);
+		expect(field("unit").labels?.[0]).toHaveTextContent(/購入単位/);
 	});
 });
 
@@ -122,9 +141,17 @@ describe("PURC-003-TC1 / PURC-004 / PURC-016-TC2: invalid input is not sent", ()
 		["PURC-004-TC4 51 surrogate name", "name", SURROGATE.repeat(51)],
 		["PURC-004-TC6 31 ASCII category", "category", "x".repeat(31)],
 		["PURC-004-TC6 31 surrogate category", "category", SURROGATE.repeat(31)],
-		["PURC-004-TC8 negative speed", "speed", "-1"],
-		["PURC-004-TC8 decimal speed", "speed", "1.5"],
-		["PURC-004-TC8 over-limit speed", "speed", "100001"],
+		["PURC-004-TC8 negative days", "days", "-1"],
+		["PURC-004-TC8 decimal days", "days", "1.5"],
+		["PURC-004-TC8 over-limit days", "days", "366"],
+		["PTF-005-TC4 negative buffer days", "buffer", "-1"],
+		["PTF-005-TC4 decimal buffer days", "buffer", "1.5"],
+		["PTF-005-TC4 over-limit buffer days", "buffer", "31"],
+		["PTF-014-TC2 empty unit", "unit", ""],
+		["PTF-014-TC2 ASCII spaces unit", "unit", "   "],
+		["PTF-014-TC2 U+3000 unit", "unit", IDEOGRAPHIC_SPACE],
+		["PTF-014-TC4 11 character unit", "unit", "あ".repeat(11)],
+		["PTF-014-TC4 11 surrogate unit", "unit", SURROGATE.repeat(11)],
 		["PURC-004-TC10 negative stock", "stock", "-1"],
 		["PURC-004-TC10 decimal stock", "stock", "1.5"],
 		["PURC-004-TC10 over-limit stock", "stock", "100001"],
@@ -139,7 +166,7 @@ describe("PURC-003-TC1 / PURC-004 / PURC-016-TC2: invalid input is not sent", ()
 	// Regression for DEFECT-002 (resolved): an emptied required numeric input
 	// must be a field error, never coerced to 0 and sent.
 	test.each<[string, FieldKey]>([
-		["PURC-003-TC1 emptied speed", "speed"],
+		["PURC-003-TC1 emptied days", "days"],
 		["PURC-003-TC1 emptied stock", "stock"],
 	])("%s is rejected at the field and not sent", async (_name, key) => {
 		const user = userEvent.setup();
@@ -154,12 +181,21 @@ describe("PURC-004: accepted boundaries are sent unchanged", () => {
 	test.each<[string, Partial<Record<FieldKey, string>>, boolean]>([
 		["PURC-004-TC3 50 ASCII name", { name: "x".repeat(50) }, false],
 		["PURC-004-TC5 30 ASCII category", { category: "x".repeat(30) }, false],
-		["PURC-004-TC7 speed 0", { speed: "0" }, false],
-		["PURC-004-TC7 speed 100000", { speed: "100000" }, false],
+		["PURC-004-TC7 days 0", { days: "0" }, false],
+		["PURC-004-TC7 days 365", { days: "365" }, false],
+		["PTF-003-TC2 buffer days 0", { buffer: "0" }, false],
+		["PTF-003-TC2 buffer days 30", { buffer: "30" }, false],
+		["PTF-014-TC3 10 character unit", { unit: "あ".repeat(10) }, false],
+		["PTF-014-TC3 10 surrogate unit", { unit: SURROGATE.repeat(10) }, false],
+		[
+			"PTF-014-TC5 surrounding spaces unit is kept",
+			{ unit: " パック " },
+			false,
+		],
 		["PURC-004-TC9 stock 0", { stock: "0" }, false],
 		["PURC-004-TC9 stock 100000", { stock: "100000" }, false],
-		["PURC-004-TC11 temporary with speed 0", { speed: "0" }, true],
-		["PURC-004-TC12 regular with speed 0", { speed: "0" }, false],
+		["PURC-004-TC11 temporary with days 0", { days: "0" }, true],
+		["PURC-004-TC12 regular with days 0", { days: "0" }, false],
 		[
 			"spec §3 / PURC-014-TC5 surrounding spaces are not trimmed",
 			{ name: " 牛乳 ", category: ` 食品${IDEOGRAPHIC_SPACE}` },
@@ -180,7 +216,9 @@ describe("PURC-004: accepted boundaries are sent unchanged", () => {
 			expect(createPurchase).toHaveBeenCalledWith({
 				name: values.name,
 				category: values.category,
-				speed: Number(values.speed),
+				unit: values.unit,
+				days_per_unit: Number(values.days),
+				buffer_days: Number(values.buffer),
 				stock: Number(values.stock),
 				is_temporary: isTemporary,
 			}),
@@ -203,7 +241,9 @@ describe("PURC-004: accepted boundaries are sent unchanged", () => {
 			expect(createPurchase).toHaveBeenCalledWith({
 				name: values.name,
 				category: values.category,
-				speed: 1,
+				unit: "パック",
+				days_per_unit: 1,
+				buffer_days: 0,
 				stock: 2,
 				is_temporary: false,
 			}),

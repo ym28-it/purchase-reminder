@@ -7,6 +7,8 @@
 
 import hashlib
 import json
+from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -40,9 +42,12 @@ class PurchaseItem(TimestampedItem):
     id: UUID
     name: str
     category: str
-    speed: float
+    unit: str
+    days_per_unit: float
+    buffer_days: int
     stock: float
     is_temporary: bool
+    stock_counted_at: datetime
 
     @classmethod
     def from_domain(cls, purchase: Purchase) -> PurchaseItem:
@@ -52,9 +57,14 @@ class PurchaseItem(TimestampedItem):
             id=purchase.id,
             name=purchase.name,
             category=purchase.category,
-            speed=purchase.speed,
+            unit=purchase.unit,
+            days_per_unit=purchase.days_per_unit,
+            buffer_days=purchase.buffer_days,
             stock=purchase.stock,
             is_temporary=purchase.is_temporary,
+            stock_counted_at=purchase.stock_counted_at,
+            created_at=purchase.created_at,
+            updated_at=purchase.updated_at,
         )
 
     def to_domain(self) -> Purchase:
@@ -64,9 +74,12 @@ class PurchaseItem(TimestampedItem):
             user_id=self.user_id,
             name=self.name,
             category=self.category,
-            speed=self.speed,
+            unit=self.unit,
+            days_per_unit=self.days_per_unit,
+            buffer_days=self.buffer_days,
             stock=self.stock,
             is_temporary=self.is_temporary,
+            stock_counted_at=self.stock_counted_at,
             created_at=self.created_at,
             updated_at=self.updated_at,
         )
@@ -147,7 +160,7 @@ def get_all_purchase_items(
     ]
 
 
-#: 読み取りから書き込みまでの間に他の操作が名前・カテゴリを変えたときの再試行回数。
+#: 書き込みまでの競合時の再試行回数（編集は任意の更新、削除は名前・カテゴリの変更）。
 _MAX_WRITE_ATTEMPTS = 5
 
 
@@ -172,16 +185,49 @@ def _unchanged_since_read(old: PurchaseItem) -> dict[str, Any]:
     }
 
 
-def put_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -> PurchaseItem:
+def _unchanged_since_read_for_edit(old: PurchaseItem) -> dict[str, Any]:
+    """編集の書き込み条件: 名前・カテゴリに加えて``updated_at``も読み取り時のまま。
+
+    ``edit``は読み取った値（在庫など）から結果を決めるため、読み取り後の他の書き込みを
+    見落とすと``stock_counted_at``が実際の在庫変更と食い違う。どの書き込みも``updated_at``を
+    進めるので、これを条件にして競合時は読み直して``edit``を適用し直す。
+    削除は読み取った値へ依存しないため、名前・カテゴリだけの条件のままにする。
+    """
+    condition = _unchanged_since_read(old)
+    return {
+        "ConditionExpression": f"{condition['ConditionExpression']} AND #updated_at = :updated_at",
+        "ExpressionAttributeNames": {
+            **condition["ExpressionAttributeNames"],
+            "#updated_at": "updated_at",
+        },
+        "ExpressionAttributeValues": {
+            **condition["ExpressionAttributeValues"],
+            ":updated_at": old.to_item()["updated_at"],
+        },
+    }
+
+
+def put_purchase_item(
+    user_id: str,
+    id: UUID,
+    edit: Callable[[Purchase], Purchase],
+    *,
+    table_name: str | None = None,
+) -> PurchaseItem:
     """購入物を更新する。
 
+    ``edit``は読み取った現在の購入物から更新後の購入物を作る。読み直して再試行するたびに
+    最新の値へ適用し直すので、``created_at``などの引き継ぎ値が古くならない。
     同じキー（``user_id``+``id``）のアイテムが存在しなければ``ItemNotFoundError``。
     別の購入物と同じ名前・カテゴリへ変更しようとした場合は``ItemAlreadyExistsError``。
-    読み取り後に他の操作が名前・カテゴリを変えていた場合は、読み直して再試行する。
+    読み取り後に他の操作が書き込んでいた（``updated_at``が変わっていた）場合は、
+    読み直して``edit``を適用し直し、再試行する。
     """
     table = get_table(table_name)
+    key = PurchaseItem.build_key(user_id=user_id, id=id)
     for _ in range(_MAX_WRITE_ATTEMPTS):
-        old = _read_current(table, item.key(), item.id)
+        old = _read_current(table, key, id)
+        item = PurchaseItem.from_domain(edit(old.to_domain()))
         changed = _unique_key(old) != _unique_key(item)
         if changed and any(
             existing.id != item.id
@@ -193,7 +239,13 @@ def put_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -> P
         ):
             raise ItemAlreadyExistsError(DUPLICATE_PURCHASE_MESSAGE)
         actions: list[dict[str, Any]] = [
-            {"Put": {"TableName": table.name, "Item": item.to_item(), **_unchanged_since_read(old)}}
+            {
+                "Put": {
+                    "TableName": table.name,
+                    "Item": item.to_item(),
+                    **_unchanged_since_read_for_edit(old),
+                }
+            }
         ]
         if changed:
             actions.append({"Delete": {"TableName": table.name, "Key": _unique_key(old)}})
@@ -217,7 +269,7 @@ def put_purchase_item(item: PurchaseItem, *, table_name: str | None = None) -> P
                 raise ItemAlreadyExistsError(DUPLICATE_PURCHASE_MESSAGE) from error
             raise
         return item
-    raise ConditionalCheckFailedError(f"購入物 {item.id}の更新が競合し続けました。")
+    raise ConditionalCheckFailedError(f"購入物 {id}の更新が競合し続けました。")
 
 
 def delete_purchase_item(user_id: str, id: UUID, *, table_name: str | None = None) -> None:

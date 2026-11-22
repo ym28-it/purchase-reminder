@@ -38,7 +38,15 @@ def test_persistence_failure_returns_500_without_internal_details(
 
     response = client.post(
         "/purchases",
-        json={"name": "牛乳", "category": "食品", "speed": 1, "stock": 2, "is_temporary": False},
+        json={
+            "name": "牛乳",
+            "category": "食品",
+            "unit": "パック",
+            "days_per_unit": 3,
+            "buffer_days": 0,
+            "stock": 2,
+            "is_temporary": False,
+        },
     )
 
     assert response.status_code == 500

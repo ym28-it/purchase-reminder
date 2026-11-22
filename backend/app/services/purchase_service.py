@@ -1,8 +1,7 @@
-from dataclasses import field
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from app.domain.purchase import Purchase
+from app.domain.purchase import Purchase, apply_edit
 from app.models.purchase import (
     PurchaseItem,
     create_purchase_item,
@@ -23,20 +22,26 @@ def create_purchase(
     user_id: str,
     name: str,
     category: str,
-    speed: float,
+    unit: str,
+    days_per_unit: float,
+    buffer_days: int,
     stock: float,
     is_temporary: bool,
 ) -> Purchase:
+    now = datetime.now(UTC)
     purchase = Purchase(
         id=uuid4(),
         user_id=user_id,
         name=name,
         category=category,
-        speed=speed,
+        unit=unit,
+        days_per_unit=days_per_unit,
+        buffer_days=buffer_days,
         stock=stock,
         is_temporary=is_temporary,
-        created_at=field(default_factory=lambda: datetime.now(UTC)),
-        updated_at=field(default_factory=lambda: datetime.now(UTC)),
+        stock_counted_at=now,
+        created_at=now,
+        updated_at=now,
     )
     purchase_item = PurchaseItem.from_domain(purchase=purchase)
     created_item = create_purchase_item(item=purchase_item)
@@ -48,23 +53,23 @@ def put_purchase(
     id: UUID,
     name: str,
     category: str,
-    speed: float,
+    days_per_unit: float,
     stock: float,
     is_temporary: bool,
 ) -> Purchase:
-    purchase = Purchase(
-        id=id,
-        user_id=user_id,
-        name=name,
-        category=category,
-        speed=speed,
-        stock=stock,
-        is_temporary=is_temporary,
-        created_at=field(default_factory=lambda: datetime.now(UTC)),
-        updated_at=field(default_factory=lambda: datetime.now(UTC)),
+    put_item = put_purchase_item(
+        user_id,
+        id,
+        edit=lambda current: apply_edit(
+            current,
+            name=name,
+            category=category,
+            days_per_unit=days_per_unit,
+            stock=stock,
+            is_temporary=is_temporary,
+            now=datetime.now(UTC),
+        ),
     )
-    purchase_item = PurchaseItem.from_domain(purchase=purchase)
-    put_item = put_purchase_item(item=purchase_item)
     return put_item.to_domain()
 
 

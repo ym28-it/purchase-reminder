@@ -83,7 +83,11 @@ export function Purchase() {
 											{purchase.category}
 										</p>
 										<p className="text-muted-foreground text-xs">
-											消費スピード {purchase.speed}
+											1{purchase.unit}
+											{purchase.days_per_unit}日
+										</p>
+										<p className="text-muted-foreground text-xs">
+											余裕 {purchase.buffer_days}日
 										</p>
 									</div>
 								</div>
@@ -91,7 +95,10 @@ export function Purchase() {
 									{purchase.is_temporary && (
 										<Badge variant="secondary">一時的</Badge>
 									)}
-									<Badge variant="outline">在庫 {purchase.stock}</Badge>
+									<Badge variant="outline">
+										在庫 {purchase.stock}
+										{purchase.unit}
+									</Badge>
 									<Button
 										type="button"
 										variant="ghost"

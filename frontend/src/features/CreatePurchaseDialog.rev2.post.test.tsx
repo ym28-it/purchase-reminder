@@ -23,17 +23,26 @@ const fetchMock = vi.hoisted(() => {
 import { queryClient } from "@/api/queryClient";
 import { Purchase } from "@/features/Purchase";
 
-type FieldKey = "name" | "category" | "speed" | "stock";
+type FieldKey = "name" | "category" | "unit" | "days" | "buffer" | "stock";
 type User = ReturnType<typeof userEvent.setup>;
 type Respond = () => Promise<Response>;
 
 const label: Record<FieldKey, RegExp> = {
 	name: /^名前$/,
 	category: /^カテゴリ$/,
-	speed: /消費スピード/,
-	stock: /現在の在庫/,
+	unit: /^購入単位/,
+	days: /使い切る日数/,
+	buffer: /余裕日数/,
+	stock: /^在庫/,
 };
-const FIELD_KEYS: FieldKey[] = ["name", "category", "speed", "stock"];
+const FIELD_KEYS: FieldKey[] = [
+	"name",
+	"category",
+	"unit",
+	"days",
+	"buffer",
+	"stock",
+];
 const DUPLICATE = /既に存在|重複/;
 const SECRET = "Traceback secret-internal-table arn:aws ConditionalCheckFailed";
 const LEAKS = [
@@ -132,8 +141,9 @@ function temporary(): HTMLInputElement {
 async function fillValid(user: User) {
 	await user.type(field("name"), "牛乳");
 	await user.type(field("category"), "食品");
-	await user.clear(field("speed"));
-	await user.type(field("speed"), "3");
+	await user.type(field("unit"), "パック");
+	await user.clear(field("days"));
+	await user.type(field("days"), "3");
 	await user.clear(field("stock"));
 	await user.type(field("stock"), "4");
 	await user.click(temporary());
@@ -142,7 +152,8 @@ async function fillValid(user: User) {
 function expectFilledValuesKept() {
 	expect(field("name")).toHaveValue("牛乳");
 	expect(field("category")).toHaveValue("食品");
-	expect(field("speed")).toHaveValue(3);
+	expect(field("unit")).toHaveValue("パック");
+	expect(field("days")).toHaveValue(3);
 	expect(field("stock")).toHaveValue(4);
 	expect(temporary()).toBeChecked();
 }
@@ -150,7 +161,9 @@ function expectFilledValuesKept() {
 function expectInitialValues() {
 	expect(field("name")).toHaveValue("");
 	expect(field("category")).toHaveValue("");
-	expect(field("speed")).toHaveValue(0);
+	expect(field("unit")).toHaveValue("");
+	expect(field("days")).toHaveValue(0);
+	expect(field("buffer")).toHaveValue(0);
 	expect(field("stock")).toHaveValue(0);
 	expect(temporary()).not.toBeChecked();
 }
@@ -306,12 +319,12 @@ describe("PURC-017: other failures are generic even if the body looks like a kno
 describe("PURC-021-TC1: an API 422 is shown on the offending fields", () => {
 	test.each<[string, FieldKey[], Respond]>([
 		["category", ["category"], unprocessable(["body", "category"])],
-		["speed", ["speed"], unprocessable(["body", "speed"])],
+		["days_per_unit", ["days"], unprocessable(["body", "days_per_unit"])],
 		["stock", ["stock"], unprocessable(["body", "stock"])],
 		[
-			"speed and stock together",
-			["speed", "stock"],
-			unprocessable(["body", "speed"], ["body", "stock"]),
+			"days_per_unit and stock together",
+			["days", "stock"],
+			unprocessable(["body", "days_per_unit"], ["body", "stock"]),
 		],
 		[
 			"a known field next to an unknown one",

@@ -43,7 +43,9 @@ def payload(pair: tuple[str, str], **overrides: object) -> dict[str, object]:
     body: dict[str, object] = {
         "name": pair[0],
         "category": pair[1],
-        "speed": 1,
+        "unit": "パック",
+        "days_per_unit": 3,
+        "buffer_days": 0,
         "stock": 2,
         "is_temporary": False,
     }
@@ -179,13 +181,13 @@ def test_purc_tdd_010_purc_023_tc2_rename_to_other_purchase_pair_is_409_and_not_
 
     edited = client.put(
         f"/purchases/{a_before['id']}",
-        json=payload(PAIR_Y, speed=7, stock=9, is_temporary=True),
+        json=payload(PAIR_Y, days_per_unit=7, stock=9, is_temporary=True),
     )
 
     assert edited.status_code == 409
     listed_a = [item for item in purchases(client) if item["id"] == a_before["id"]]
     assert len(listed_a) == 1
-    fields = ("name", "category", "speed", "stock", "is_temporary")
+    fields = ("name", "category", "days_per_unit", "stock", "is_temporary")
     assert {f: listed_a[0][f] for f in fields} == {f: a_before[f] for f in fields}
 
 
