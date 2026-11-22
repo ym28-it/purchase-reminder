@@ -226,6 +226,18 @@ PUTの入力が7項目の完全置き換えに変わるため、次の既存テ�
 - 実装: `PurchaseWriteRequest`基底スキーマを導入し`PurchaseCreateRequest`・`PurchasePutRequest`が継承。`put_purchase_endpoint`・`put_purchase`・`apply_edit`が`unit`・`buffer_days`を受け取り、7項目を引数の値で置き換える（`created_at`は引き継ぎ、`stock_counted_at`は在庫変更時のみ更新）。`frontend/src/api/schema.d.ts`を再生成（`PurchasePutRequest`に`unit`・`buffer_days`が必須で追加、`is_temporary`が必須化）
 - 追従した非凍結テスト: `test_purchase_edit.py`（新シグネチャへ。`test_review_focus_1_and_ptf_012_*`は`created_at`保持と`unit`・`buffer_days`の置換へ）、`test_purchase_ptf_post.py`（`put_purchase`直接呼び出し2箇所に`unit="パック"`・`buffer_days=0`を追加。期待は不変）
 
+#### Frontend Green（Task 4）
+
+| Test Case ID | 実行コマンド | 結果 |
+|---|---|---|
+| PEDT-007-TC1・TC2・TC4、PEDT-008-TC1・TC2、PEDT-010-TC1（`Purchase.edit.test.tsx`全件と書き直したPEDT-010-TC1、Red時の失敗12件を含む） | `bun run test -- --run`（`frontend/`） | 108 passed、0 failed（10ファイル、終了コード0）。Red時の12件のFAILはすべてPASS |
+
+- 実装計画のGreenタスク: Task 4（Frontend Green）
+- 凍結済みテストの差分確認（`git diff ab0ca60 -- frontend/src/features/Purchase.edit.test.tsx frontend/src/features/Purchase.ptf.post.test.tsx`）: 差分なし
+- 実装: 検証を`frontend/src/features/purchaseFormSchema.ts`（`purchaseFormSchema`）へ切り出し、登録・編集ダイアログが共有。編集ダイアログへ購入単位・余裕日数の入力欄を追加し、数値欄を`valueAsNumber`にし、7項目を`PurchasePutRequest`として送信。登録ダイアログの振る舞いは変更なし
+- 検証: `bun run lint`、`bun run format:check`、`bun run build`（`tsc -b`を含む。Task 2から残っていたTS2739が解消）がいずれも終了コード0
+- Green記録コミットSHA: （コミット後に追記）
+
 ### Refactor・回帰
 
 - 実行コマンド（`backend/`）: `ruff check .`、`ruff format --check .`、`pytest -m "not integration" -q`、上記integration

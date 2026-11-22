@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,30 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreatePurchase } from "@/hooks/usePurchases";
-
-/** API（Python）と同じくコードポイント単位で文字数を数える。 */
-function codePointLength(value: string): number {
-	return [...value].length;
-}
-
-function requiredText(emptyMessage: string, maxLength: number) {
-	return z
-		.string()
-		.refine((value) => value.trim().length > 0, emptyMessage)
-		.refine(
-			(value) => codePointLength(value) <= maxLength,
-			`${maxLength}文字以内で入力してください`,
-		);
-}
-
-/** 空欄はNaNになり、0として送らずに入力エラーにする。 */
-function quantity(emptyMessage: string, max = 100000) {
-	return z
-		.number({ error: emptyMessage })
-		.int("整数を入力してください")
-		.min(0, "0以上を入力してください")
-		.max(max, `${max}以下を入力してください`);
-}
+import { purchaseFormSchema } from "./purchaseFormSchema";
 
 type CreatePurchaseFormField =
 	| "name"
@@ -74,16 +50,6 @@ function invalidFormFields(error: unknown): CreatePurchaseFormField[] {
 	return [...fields];
 }
 
-const createPurchaseFormSchema = z.object({
-	name: requiredText("名前を入力してください", 50),
-	category: requiredText("カテゴリを入力してください", 30),
-	unit: requiredText("購入単位を入力してください", 10),
-	daysPerUnit: quantity("1単位を使い切る日数を入力してください", 365),
-	bufferDays: quantity("余裕日数を入力してください", 30),
-	stock: quantity("在庫を入力してください"),
-	isTemporary: z.boolean(),
-});
-
 export function CreatePurchaseDialog({
 	open,
 	onOpenChange,
@@ -98,7 +64,7 @@ export function CreatePurchaseDialog({
 		setError,
 		formState: { errors },
 	} = useForm({
-		resolver: zodResolver(createPurchaseFormSchema),
+		resolver: zodResolver(purchaseFormSchema),
 		defaultValues: {
 			name: "",
 			category: "",
