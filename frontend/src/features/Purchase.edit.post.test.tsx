@@ -246,6 +246,45 @@ describe("PEDT Review Focus 1: a stale non-integer saved value", () => {
 	});
 });
 
+describe("PEDT-007 (reopen): initial values are the saved values on every open", () => {
+	test("PEDT-007 (reopen): re-opening the same purchase after abandoning an edit shows the saved values", async () => {
+		const user = userEvent.setup();
+		renderList();
+		const dialog = await openEdit(user);
+
+		await replace(
+			user,
+			within(dialog).getByLabelText(fields.unit),
+			"abandoned",
+		);
+		const days = within(dialog).getByLabelText(fields.days);
+		await replace(user, days, "1.5");
+		await replace(user, within(dialog).getByLabelText(fields.stock), "9");
+		await user.click(within(dialog).getByRole("button", SAVE));
+		await waitFor(() => expect(errorOf(days)).not.toBeNull());
+
+		await user.keyboard("{Escape}");
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
+
+		const reopened = await openEdit(user);
+		expect(within(reopened).getByLabelText(fields.name)).toHaveValue("牛乳");
+		expect(within(reopened).getByLabelText(fields.category)).toHaveValue(
+			"食品",
+		);
+		expect(within(reopened).getByLabelText(fields.unit)).toHaveValue("パック");
+		expect(within(reopened).getByLabelText(fields.days)).toHaveValue(3);
+		expect(within(reopened).getByLabelText(fields.buffer)).toHaveValue(2);
+		expect(within(reopened).getByLabelText(fields.stock)).toHaveValue(2);
+		expect(within(reopened).getByLabelText(/一時的な購入/)).toBeChecked();
+		for (const key of Object.keys(fields) as FieldKey[]) {
+			expect(errorOf(within(reopened).getByLabelText(fields[key]))).toBeNull();
+		}
+		expect(putBodies).toHaveLength(0);
+	});
+});
+
 describe("PEDT-007-TC4 / PEDT-001: the temporary flag is edited and sent", () => {
 	test("unchecking the temporary checkbox sends is_temporary=false with the other saved values", async () => {
 		const user = userEvent.setup();
