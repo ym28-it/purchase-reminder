@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。購入物登録スライス（仕様第2版、`docs/specs/purchase-create*.md`）は、TDDテスト、実装後テスト（Backend unit / DynamoDB Local integration、Frontend Vitest）、Playwright E2E（`e2e/run-e2e.sh`）まで整備済み。編集・削除の画面と操作、一覧の詳細仕様はまだ仕様化されていない。Cognito認証（現在は`dev-user`固定の仮実装）、購入タイミングのドメインロジック、LINE通知と購入報告、Terraform、デプロイ、integration / E2EのCIワークフローは未実装。開発ワークフローはsuperpowersへ移行し、TDD部分だけを独自制御としている。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
+ローカル環境では、FastAPI + DynamoDB Localの購入物CRUD（一覧・登録・更新・削除）と、それを操作するReact画面まで実装済み。購入物登録スライス（仕様第2版、`docs/specs/purchase-create*.md`）は、TDDテスト、実装後テスト（Backend unit / DynamoDB Local integration、Frontend Vitest）、Playwright E2E（`e2e/run-e2e.sh`）まで整備済み。①-1 登録項目の変更（PTF、`docs/superpowers/specs/2026-11-12-purchase-timing-fields-*.md`）で購入物登録を第3版にし、購入単位・1単位あたりの日数・余裕日数・在庫を数えた日時を登録・一覧・編集（引き継ぎ）まで実装した。編集・削除の画面と操作、一覧の詳細仕様はまだ仕様化されていない。Cognito認証（現在は`dev-user`固定の仮実装）、購入タイミングのドメインロジック、LINE通知と購入報告、Terraform、デプロイ、integration / E2EのCIワークフローは未実装。開発ワークフローはsuperpowersへ移行し、TDD部分だけを独自制御としている。着手前に実際のファイルとCI結果を確認し、この記述よりコードを優先して現在地を判断すること。
 
 ### 決定済みの通知・認証方針
 
@@ -26,11 +26,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ①-1の仕様は`docs/superpowers/specs/2026-11-12-purchase-timing-fields-design.md`（PTF、2026-11-22承認）で、購入物登録仕様を第3版に改訂する
 - LINE Messaging APIの調査結果と未確認事項は`docs/research/line-messaging-api.md`にある。②の仕様作成時に公式ドキュメントで再確認する
 
-### 現在の優先作業: 購入物登録スライスの完了判断
+### 現在の優先作業: ①-1（PTF）の完了判断と①-2への移行
 
 テスト環境は`ENVIRONMENT_READY`であり、Work、Claude Code、Ubuntu/macOS Actionsで共通経路を確認済みである。[テスト実行環境構築計画](docs/todo/test-environment-rollout.md)と[Environment Gate実行証跡](docs/test-environment-gate-evidence.md)を環境契約のsource of truthとする。環境コードまたはテスト基盤を変更した場合だけ、同じGateを再実行して人間の再承認を得る。環境の確認・修復には独立した`setup-test-environment` Skillを使用する。
 
-購入物登録は、PR #35で仕様第2版の実装、実装後検証、superpowersの最終コードレビューまで完了している。人間がSlice Complete（マージ）を判断した後は、`docs/todo/test-environment-rollout.md`の後続項目（integration / E2EのCIワークフロー）や、編集・削除など次の垂直スライスへ進む。新しいスライスは`superpowers:brainstorming`から始める。
+購入物登録は、PR #35で仕様第2版まで完了した。①-1（PTF）は実装、実装後検証、最終コードレビューまで完了している。人間がSlice Complete（マージ）を判断した後は、①-2 買い物計画の表示、`docs/todo/test-environment-rollout.md`の後続項目（integration / E2EのCIワークフロー）や、編集・削除など次の垂直スライスへ進む。新しいスライスは`superpowers:brainstorming`から始める。
 
 ## 開発ワークフロー（superpowers＋独自TDD）
 
@@ -140,7 +140,7 @@ DynamoDB Localを使うintegration testは、`test.yml`のunit testへ混在さ�
 
 ### データモデル
 
-コアエンティティは `purchase`: `id`(UUID) / `name` / `category` / `speed`（消費スピード） / `stock`（在庫）（PTF承認により`unit` / `days_per_unit` / `buffer_days` / `stock_counted_at`へ変更予定） / `is_temporary`（定期購入しないもの）。フィールドの詳細と本番インフラ（S3+CloudFront、API Gateway、Lambda(LWA)、ECR、DynamoDB、Cognito、Route53、ACM、Terraform管理）はREADME.md参照。
+コアエンティティは `purchase`: `id`(UUID) / `name` / `category` / `unit`（購入単位） / `days_per_unit`（1購入単位を使い切る日数、0は計算対象外） / `buffer_days`（余裕日数） / `stock`（在庫、購入単位） / `stock_counted_at`（在庫を数えた日時） / `is_temporary`（定期購入しないもの）。フィールドの詳細と本番インフラ（S3+CloudFront、API Gateway、Lambda(LWA)、ECR、DynamoDB、Cognito、Route53、ACM、Terraform管理）はREADME.md参照。
 
 ### 設計上の狙い（実装時に意識すること）
 
