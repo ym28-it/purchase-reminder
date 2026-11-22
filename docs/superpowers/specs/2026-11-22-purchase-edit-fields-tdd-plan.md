@@ -8,7 +8,7 @@
 | 論理テストケースSSOT | `docs/superpowers/specs/2026-11-22-purchase-edit-fields-test-cases.md` |
 | 論理テストケースの参照コミット | `90f68f9` |
 | 変更単位 | 購入物の編集で、登録と同じ全7項目を、登録と同じ検証で変更して永続化する |
-| 文書状態 | Core Approved |
+| 文書状態 | Core Approved（Test Plan Gate承認待ち） |
 
 論理テストケースの期待結果をこの文書で再定義しない。期待結果はTest Case IDを通じてSSOTを参照する。
 
@@ -98,21 +98,62 @@ Core Contract Gate通過前に、最小TDDテストセット、テストコー�
 
 Core Contract Gate通過後、最初のテストコードまたは実装コード変更前に確認する。
 
-- 基準コミットSHA:
-- 実行コマンド:
-- 結果:
-- 既存失敗:
-- 未実行の検証と理由:
-- 既存失敗を今回の変更から分離できるか:
-- 分離できない場合の判断:
+- 基準コミットSHA: `ea4e4f0`（ブランチ`feat/purchase-edit-fields`）
+- 実行コマンド（`backend/`と`frontend/`から）:
+  - `../bin/mise exec -- uv run ruff check .` / `ruff format --check .`
+  - `../bin/mise exec -- uv run pytest -m "not integration" -q`
+  - `DYNAMODB_LOCAL_PORT=18001 ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest -m integration -q`
+  - `bun install --frozen-lockfile`、`bun run test -- --run`、`bun run lint`、`bun run format:check`、`bun run build`（`tsc -b`を含む）
+- 結果: ruff check Pass、ruff format 55ファイル整形済み、Backend unit 79 passed、Backend integration 145 passed、Frontend Vitest 97 passed（9ファイル）、Biome lint Pass、format:check Pass、build Pass
+- 既存失敗: なし
+- 未実行の検証と理由: E2E（`e2e/run-e2e.sh`）は、起動中のdocker-composeスタックとフロントエンドdevサーバーを要し、TDD前のBaselineの対象外としたため実行していない。pre-commitフックは実行していない
+- 既存失敗を今回の変更から分離できるか: Yes（既存失敗なし）
+- 分離できない場合の判断: 該当なし
+- 環境の備考: 実行開始時、このマシンにuvとJavaのmise管理の導入がなく`ENVIRONMENT_FAILURE`（実装の失敗ではない）となったため、承認済みの`bash scripts/setup_host_prerequisites.sh --install`で導入した（`--check`はPass、環境コードの変更なし）。docker-composeのDynamoDB Localがポート8001を使用中だったため、統合テストは`DYNAMODB_LOCAL_PORT=18001`で実行した（起動中の開発サーバーは停止していない）
 
 ## 既存テストによる保護
 
-Core Contract Gate通過後に記入する。
+| Contract ID | 既存テスト | Baseline結果 | 十分か | 新規テスト | 根拠 |
+|---|---|---|---|---|---|
+| PEDT-CORE-005 | `test_purchase_ptf.py::test_ptf_tdd_010_ptf_013_tc1_stock_edit_recounts_at_updated_at`（PEDT-006-TC1の期待と同じ） | Pass | Yes（編集の入力を7項目へ書き直した後） | TC1は書き直しで保護、TC2・TC3はAdd | 在庫変更時の更新は変わらない。購入単位・余裕日数だけの変更は新しい契約 |
+| PEDT-CORE-006 | `test_purchase_uniqueness_rev2.py::test_purc_tdd_010_purc_023_tc2_rename_to_other_purchase_pair_is_409_and_not_persisted`、`test_purchase_rev2_post.py::test_purc_023_tc2_rename_into_existing_pair_is_409_even_when_precheck_misses_it` | Pass | 一部（購入単位が違う編集の409と、購入単位だけの編集は未保護） | PEDT-009-TC1・TC2をAdd | 重複判定の基本は既存テストで保護されるが、購入単位の絡む新しい経路は未保護 |
+| PEDT-CORE-007 | `Purchase.ptf.post.test.tsx`のPTF-012-TC1（UI側）、PTF-012-TC2 | Pass | No（TC1は期待が反転する） | Add（書き直しを含む） | PTF-012-TC1は「購入単位・余裕日数を送らない」ことを検証しており、PEDTで期待が反転する |
+| PEDT-CORE-001〜004、008 | なし | - | No | Add | 編集の項目・検証は新設または変更 |
 
 ## 最小TDDテストセット
 
-Baseline記録後に記入する。
+提案（Test Plan Gate承認待ち）。論理テストケースの前提・操作・期待結果はSSOTを参照し、複製しない。
+
+| Test Case ID | Contract ID | 役割 | テストレベル | 実テスト予定場所 | 変更前の期待状態 | 選定根拠 |
+|---|---|---|---|---|---|---|
+| PEDT-001-TC1、PEDT-005-TC1、PEDT-005-TC2 | PEDT-CORE-001 | 変更目的 | Integration（API） | `backend/tests/integration/api/test_purchase_edit_fields.py`（新規） | Red（`unit`・`buffer_days`が変更されない） | 編集で全7項目を変更し、レスポンスと再取得で確認する。`unit`・`buffer_days`の変更と、作成日時・更新日時、レスポンスの形を1件で識別できる |
+| PEDT-001-TC2（`unit`、`buffer_days`、`is_temporary`の欠落） | PEDT-CORE-002 | 重大反例 | Integration（API、項目ごとのparametrize） | 同上 | Red（欠落を受け付ける。`is_temporary`は`false`になる） | 新しく必須になる3項目の欠落を識別する。名前・カテゴリ・日数・在庫の欠落は現在も422でGreenのため、実装後テストへ送る |
+| PEDT-004-TC1 | PEDT-CORE-002 | 重大反例 | Integration（API） | 同上 | Red（1単位あたりの日数366と余裕日数31を受け付ける） | 複数違反を項目ごとに識別でき、保存済みの購入物が変わらないことを確認する |
+| PEDT-002-TC2（数値項目: 日数366・小数、在庫100,001・小数、一時的な購入が文字列） | PEDT-CORE-003 | 重大反例 | Integration（API、値ごとのparametrize） | 同上 | Red（現在は受け付ける） | 登録で拒否される値が編集経由で保存される問題を直接表す。丸めずに拒否し、保存済みの購入物が変わらないことを確認する |
+| PEDT-002-TC1（数値項目の境界）、PEDT-003-TC1 | PEDT-CORE-003 | 変更目的 | Integration（API） | 同上 | Red（日数0を拒否する） | 日数0・365、余裕日数0・30、在庫0・100,000を受け付けることを1件で確認する。0の許可が現在との差を識別する |
+| PEDT-002-TC2（文字列項目: 名前51・カテゴリ31・購入単位11文字、空白だけ） | PEDT-CORE-004 | 重大反例 | Integration（API、値ごとのparametrize） | 同上 | Red（上限なし、空白だけを受け付ける） | 登録と同じ文字列の制約が編集に効くことを確認する |
+| PEDT-002-TC1（文字列項目の境界）、PEDT-002-TC3 | PEDT-CORE-004 | 変更目的 | Integration（API） | 同上 | Red（`unit`が保存されない） | 名前50・カテゴリ30・購入単位10文字（`𠮷`を含む）と、前後空白の保持を確認する |
+| PEDT-006-TC1 | PEDT-CORE-005 | 代表回帰 | Integration（API） | `test_purchase_ptf.py`の既存テストを7項目の入力へ書き直す | Green（Red例外: 既存保護の書き直し） | 在庫変更時の更新は変わらないことを維持する |
+| PEDT-006-TC2、PEDT-006-TC3 | PEDT-CORE-005 | 重大反例 | Integration（API、購入単位・余裕日数のparametrize） | `test_purchase_edit_fields.py` | Red（変更が保存されない） | 購入単位・余裕日数だけの変更で`stock_counted_at`が動かないことを確認する |
+| PEDT-009-TC1 | PEDT-CORE-006 | 代表回帰 | Integration（API） | `test_purchase_edit_fields.py` | Green（Red例外: Characterization。重複判定は変わらない） | 購入単位が違っても409で拒否され、変更が永続化されないことを確認する |
+| PEDT-009-TC2 | PEDT-CORE-006 | 重大反例 | Integration（API） | `test_purchase_edit_fields.py` | Red（購入単位が変更されない） | 購入単位だけの変更が自分自身との重複にならないことを確認する |
+| PEDT-007-TC1、PEDT-007-TC2 | PEDT-CORE-007 | 変更目的 | Component | `frontend/src/features/Purchase.edit.test.tsx`（新規） | Red（購入単位・余裕日数の入力欄がない） | 全7項目の入力と、保存済みの値が初期値で、別の購入物へ切り替えると入れ替わることを確認する |
+| PEDT-007-TC4 | PEDT-CORE-007 | 変更目的 | Component | 同上 | Red（購入単位・余裕日数が送信されない） | 変更して保存すると全7項目が送信され、一覧へ反映される。UIから永続化経路までの主要正常系 |
+| PEDT-010-TC1 | PEDT-CORE-007 | 代表回帰 | Component | `Purchase.ptf.post.test.tsx`のPTF-012-TC1（UI側）を書き直す | Red（購入単位・余裕日数が送信されない） | 変更していない購入単位・余裕日数が保存済みの値のまま送られ、失われないことを確認する |
+| PEDT-008-TC1 | PEDT-CORE-008 | 重大反例 | Component（値ごとのparametrize） | `Purchase.edit.test.tsx` | Red（現在は小数・上限超過・空の購入単位の検証がなく、要求が送信される） | 範囲外・小数・空は送信せず、項目ごとにエラーを表示する |
+| PEDT-008-TC2 | PEDT-CORE-008 | 変更目的 | Component | `Purchase.edit.test.tsx` | Red（日数0を拒否する） | 境界値（0、30、100,000、10文字）が送信されることを確認する |
+
+各承認済み中心的契約（PEDT-CORE-001〜008）を、少なくとも1つのテストで識別できる。新規テスト行は15行（parametrizeを除く）。
+
+### 既存テストの書き直し（承認済み）
+
+PUTの入力が7項目の完全置き換えに変わるため、次の既存テストを書き直す。期待動作が変わらないものは、編集の入力へ`unit`と`buffer_days`を加えるだけとし、書き直し後は変更前も変更後もGreenを保つ。
+
+- `backend/tests/integration/api/`: `test_purchase_ptf.py`、`test_purchase_ptf_post.py`、`test_purchase_rev2_post.py`、`test_purchase_uniqueness_rev2.py`、`test_purchase_rename_self_race.py`のPUTを送る箇所
+- `test_purchase_ptf.py`のPTF-012-TC1（購入単位・余裕日数を引き継ぐ）は、期待が反転するため、PEDT-001-TC1・PEDT-005-TC1へ置き換えて削除する
+- `test_purchase_ptf_post.py`のうち、在庫`2.0`や`days_per_unit`の小数を送るもの（`test_review_focus_5_*`、`test_review_focus_3_unrelated_concurrent_write_does_not_recount_stock`）は、整数のみの検証に合わせて整数へ直す
+- `frontend/src/features/Purchase.ptf.post.test.tsx`のPTF-012-TC1（UI側）は、PEDT-010-TC1へ書き直す
+- `backend/tests/unit/domain/test_purchase_edit.py`は、編集の適用関数を直接呼ぶ実装結合のテストで、関数の引数が`unit`・`buffer_days`を含むように変わる。実装方法の詳細のため、TDDの対象には含めず、Greenタスクで実装と同時に追従する（確認事項はTest Plan Gateで人間に確認する）
 
 ## Test Plan Gate
 
