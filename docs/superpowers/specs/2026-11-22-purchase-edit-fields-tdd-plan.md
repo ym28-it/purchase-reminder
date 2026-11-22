@@ -178,12 +178,23 @@ PUTの入力が7項目の完全置き換えに変わるため、次の既存テ�
 
 | Test Case ID | 実行コマンド | 実際の失敗 | Valid Red | 判定根拠 |
 |---|---|---|---|---|
-|  |  |  |  |  |
+| PEDT-001-TC1、005-TC1、005-TC2 | 上記（`test_pedt_tdd_001_*`） | `unit`・`buffer_days`が保存されず、7項目の一致assertionでFAIL | Valid Red | 収集・環境設定後のassertion失敗。未実装の契約が原因 |
+| PEDT-001-TC2 | 同上（`test_pedt_tdd_002_*` 3件） | `assert 200 == 422`（`unit`・`buffer_days`・`is_temporary`の欠落を受け付ける） | Valid Red | 同上 |
+| PEDT-004-TC1 | 同上（`test_pedt_tdd_003_*`） | `assert 200 == 422`（366と31を受け付ける） | Valid Red | 同上 |
+| PEDT-002-TC2（数値項目） | 同上（`test_pedt_tdd_004_*` 13件） | `assert 200 == 422`（範囲外・小数・文字列・非真偽値を受け付ける） | Valid Red | 同上 |
+| PEDT-002-TC1（数値項目）、003-TC1 | 同上（`test_pedt_tdd_005_*` 7件中4件） | `assert 422 == 200`（日数0、2件）、`assert 1 == 0`・`assert 1 == 30`（`buffer_days`が保存されない）。日数365・在庫0・在庫100000の3件は現在もPASS（実装後の回帰保護） | Valid Red（失敗4件） | 失敗は日数0の拒否と`buffer_days`の未保存による |
+| PEDT-002-TC2（文字列項目） | 同上（`test_pedt_tdd_006_*` 7件） | `assert 200 == 422`（51/31/11文字、空白だけ、空の`unit`を受け付ける） | Valid Red | 同上 |
+| PEDT-002-TC1（文字列項目）、002-TC3 | 同上（`test_pedt_tdd_007_*`） | `unit`が保存されずassertion失敗 | Valid Red | 同上 |
+| PEDT-006-TC2、006-TC3 | 同上（`test_pedt_tdd_008_*` 2件） | `assert 'パック' == '本'`、`assert 1 == 5`相当（変更が反映されない） | Valid Red | 同上 |
+| PEDT-009-TC1 | 同上（`test_pedt_tdd_009_*`） | PASS | Red例外（Characterization） | 重複判定は変更前から409で拒否 |
+| PEDT-009-TC2 | 同上（`test_pedt_tdd_010_*`） | `unit`が「本」にならずFAIL | Valid Red | 同上 |
+| PEDT-006-TC1（書き直し既存） | 同上（`test_ptf_tdd_010_*`） | PASS | Red例外（既存保護の書き直し） | 7項目入力へ書き直し、変更前から成立 |
 
-- 実装計画のRedタスク:
-- 環境スモーク・Baselineの結果:
-- 凍結したテストファイル:
-- Red記録コミットSHA:
+- 実装計画のRedタスク: Task 1（Backend Red）
+- 環境スモーク・Baselineの結果: 変更前 unit 79 passed、integration 145 passed。Red後 unit 79 passed（変更なし）、integration 33 failed / 147 passed（新規`test_purchase_edit_fields.py`のみがFAIL、既存テストの新規FAILなし、収集・import失敗なし）。失敗した33件の内訳は上表。統合テスト総数は180（旧145から、削除`test_ptf_tdd_012_*`、`[2.0]`行の整数化による除去、新規約37件の追加）。実行コマンド: `DYNAMODB_LOCAL_PORT=18001 ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- ../bin/mise exec -- uv run pytest -m integration -q`（`backend/`、終了コード1）
+- 書き直した既存テスト: `test_purchase_ptf.py`（010・011を7項目へ、`test_ptf_tdd_012_*`を削除）、`test_purchase_ptf_post.py`（`put_body`に`unit`・`buffer_days`、在庫`2.0`を整数`2`へ）。`test_purchase_rev2_post.py`、`test_purchase_uniqueness_rev2.py`、`test_purchase_rename_self_race.py`の`payload()`は既に7項目のため変更なし
+- 凍結したテストファイル: `backend/tests/integration/api/test_purchase_edit_fields.py`
+- Red記録コミットSHA: (下記コミット後に追記)
 
 ### Green
 

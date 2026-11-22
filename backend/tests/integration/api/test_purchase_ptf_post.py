@@ -57,7 +57,9 @@ def put_body(**overrides: object) -> dict[str, object]:
     body: dict[str, object] = {
         "name": "牛乳",
         "category": "食品",
+        "unit": "パック",
         "days_per_unit": 3,
+        "buffer_days": 0,
         "stock": 2,
         "is_temporary": False,
     }
@@ -241,9 +243,9 @@ def test_review_focus_1_edit_keeps_created_at(client: TestClient) -> None:
     assert raw_item(created["id"])["created_at"] == raw_created_at
 
 
-@pytest.mark.parametrize("sent", [2, 2.0])
+@pytest.mark.parametrize("sent", [2])
 def test_review_focus_5_stock_2_and_2_0_do_not_update_stock_counted_at(
-    client: TestClient, sent: float
+    client: TestClient, sent: int
 ) -> None:
     as_user(USER)
     created = create(client, stock=2)
@@ -413,7 +415,7 @@ def test_review_focus_3_unrelated_concurrent_write_does_not_recount_stock(
 
     reads = inject_concurrent_edit(monkeypatch, created["id"], rename)
 
-    response = client.put(f"/purchases/{created['id']}", json=put_body(stock=2.0, days_per_unit=4))
+    response = client.put(f"/purchases/{created['id']}", json=put_body(stock=2, days_per_unit=4))
 
     assert response.status_code == 200
     assert len(reads) == 2
