@@ -204,7 +204,7 @@ PUTの入力が7項目の完全置き換えに変わるため、次の既存テ�
 
 - 実装計画のGreenタスク: Task 2（Backend Green）
 - 凍結済みテストの差分確認（`git diff 7261023 -- backend/tests/integration/api/test_purchase_edit_fields.py`）: 差分なし
-- Green記録コミットSHA: （コミット後に追記）
+- Green記録コミットSHA: `92bed1f`
 - 実装: `PurchaseWriteRequest`基底スキーマを導入し`PurchaseCreateRequest`・`PurchasePutRequest`が継承。`put_purchase_endpoint`・`put_purchase`・`apply_edit`が`unit`・`buffer_days`を受け取り、7項目を引数の値で置き換える（`created_at`は引き継ぎ、`stock_counted_at`は在庫変更時のみ更新）。`frontend/src/api/schema.d.ts`を再生成（`PurchasePutRequest`に`unit`・`buffer_days`が必須で追加、`is_temporary`が必須化）
 - 追従した非凍結テスト: `test_purchase_edit.py`（新シグネチャへ。`test_review_focus_1_and_ptf_012_*`は`created_at`保持と`unit`・`buffer_days`の置換へ）、`test_purchase_ptf_post.py`（`put_purchase`直接呼び出し2箇所に`unit="パック"`・`buffer_days=0`を追加。期待は不変）
 
