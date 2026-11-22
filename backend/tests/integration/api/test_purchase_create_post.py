@@ -5,7 +5,7 @@ scenarios live in ``test_purchase_create.py`` and are not duplicated here.
 """
 
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -37,7 +37,9 @@ def valid_purchase(**overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
         "name": "牛乳",
         "category": "食品",
-        "speed": 1,
+        "unit": "パック",
+        "days_per_unit": 3,
+        "buffer_days": 0,
         "stock": 2,
         "is_temporary": False,
     }
@@ -59,7 +61,15 @@ def error_fields(response_json: dict[str, object]) -> set[str]:
 
 
 def stored_fields(item: dict[str, object]) -> tuple[object, ...]:
-    return (item["name"], item["category"], item["speed"], item["stock"], item["is_temporary"])
+    return (
+        item["name"],
+        item["category"],
+        item["unit"],
+        item["days_per_unit"],
+        item["buffer_days"],
+        item["stock"],
+        item["is_temporary"],
+    )
 
 
 # --- PURC-003-TC2 / PURC-004: invalid input is rejected with 422 and not stored ---
@@ -82,13 +92,13 @@ def stored_fields(item: dict[str, object]) -> tuple[object, ...]:
         pytest.param(
             {"category": SURROGATE * 31}, "category", id="PURC-004-TC6-category-31-surrogate"
         ),
-        pytest.param({"speed": -1}, "speed", id="PURC-004-TC8-speed-negative"),
-        pytest.param({"speed": 1.5}, "speed", id="PURC-004-TC8-speed-decimal"),
-        pytest.param({"speed": 100001}, "speed", id="PURC-004-TC8-speed-over"),
+        pytest.param({"days_per_unit": -1}, "days_per_unit", id="PURC-004-TC8-days-negative"),
+        pytest.param({"days_per_unit": 1.5}, "days_per_unit", id="PURC-004-TC8-days-decimal"),
+        pytest.param({"days_per_unit": 366}, "days_per_unit", id="PURC-004-TC8-days-over"),
         pytest.param({"stock": -1}, "stock", id="PURC-004-TC10-stock-negative"),
         pytest.param({"stock": 1.5}, "stock", id="PURC-004-TC10-stock-decimal"),
         pytest.param({"stock": 100001}, "stock", id="PURC-004-TC10-stock-over"),
-        pytest.param({"speed": None}, "speed", id="PURC-003-TC2-speed-null"),
+        pytest.param({"days_per_unit": None}, "days_per_unit", id="PURC-003-TC2-days-null"),
         pytest.param({"stock": None}, "stock", id="PURC-003-TC2-stock-null"),
     ],
 )
@@ -107,7 +117,7 @@ def test_invalid_input_is_rejected_with_field_and_not_stored(
 # --- PURC-003-TC3: missing required field ---
 
 
-@pytest.mark.parametrize("field", ["name", "category", "speed", "stock"])
+@pytest.mark.parametrize("field", ["name", "category", "days_per_unit", "stock"])
 def test_missing_required_field_is_rejected_with_field_and_not_stored(
     client: TestClient, field: str
 ) -> None:
@@ -146,11 +156,13 @@ def test_missing_is_temporary_is_rejected_with_field_and_not_stored(client: Test
         pytest.param({"name": SURROGATE * 50}, id="PURC-004-TC3-name-50-surrogate"),
         pytest.param({"category": "x" * 30}, id="PURC-004-TC5-category-30-ascii"),
         pytest.param({"category": SURROGATE * 30}, id="PURC-004-TC5-category-30-surrogate"),
-        pytest.param({"speed": 0}, id="PURC-004-TC7-speed-0"),
-        pytest.param({"speed": 100000}, id="PURC-004-TC7-speed-100000"),
+        pytest.param({"days_per_unit": 0}, id="PURC-004-TC7-days-0"),
+        pytest.param({"days_per_unit": 365}, id="PURC-004-TC7-days-365"),
         pytest.param({"stock": 0}, id="PURC-004-TC9-stock-0"),
         pytest.param({"stock": 100000}, id="PURC-004-TC9-stock-100000"),
-        pytest.param({"speed": 0, "is_temporary": True}, id="PURC-004-TC11-temporary-speed-0"),
+        pytest.param(
+            {"days_per_unit": 0, "is_temporary": True}, id="PURC-004-TC11-temporary-days-0"
+        ),
     ],
 )
 def test_boundary_input_is_created_and_stored_unchanged(
@@ -212,10 +224,15 @@ def test_exact_duplicate_is_rejected_with_409_and_original_kept(client: TestClie
 @pytest.mark.parametrize(
     "overrides",
     [
-        pytest.param({"speed": 9}, id="speed"),
+        pytest.param({"days_per_unit": 9}, id="days_per_unit"),
+        pytest.param({"unit": "本"}, id="unit"),
+        pytest.param({"buffer_days": 5}, id="buffer_days"),
         pytest.param({"stock": 99}, id="stock"),
         pytest.param({"is_temporary": True}, id="is_temporary"),
-        pytest.param({"speed": 0, "stock": 0, "is_temporary": True}, id="all"),
+        pytest.param(
+            {"unit": "本", "days_per_unit": 0, "buffer_days": 5, "stock": 0, "is_temporary": True},
+            id="all",
+        ),
     ],
 )
 def test_duplicate_ignores_non_key_fields(client: TestClient, overrides: dict[str, object]) -> None:
@@ -268,7 +285,10 @@ def test_duplicate_of_item_without_reservation_is_rejected(client: TestClient) -
         id=uuid4(),
         name="牛乳",
         category="食品",
-        speed=1,
+        unit="パック",
+        days_per_unit=3,
+        buffer_days=0,
+        stock_counted_at=datetime.now(UTC),
         stock=2,
         is_temporary=False,
     )

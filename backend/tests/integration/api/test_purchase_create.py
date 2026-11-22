@@ -28,7 +28,9 @@ def valid_purchase(**overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
         "name": "牛乳",
         "category": "食品",
-        "speed": 1,
+        "unit": "パック",
+        "days_per_unit": 3,
+        "buffer_days": 0,
         "stock": 2,
         "is_temporary": False,
     }
@@ -42,21 +44,31 @@ def purchases(client: TestClient) -> list[dict[str, object]]:
     return response.json()
 
 
-def test_purc_tdd_001_create_zero_speed_and_reload_from_storage(client: TestClient) -> None:
+def test_purc_tdd_001_create_zero_days_per_unit_and_reload_from_storage(client: TestClient) -> None:
     """PURC-005-TC1, 008-TC1/2/3, 009-TC1, 004-TC12; CORE-001/002."""
     as_user("user-a")
-    response = client.post("/purchases", json=valid_purchase(speed=0))
+    response = client.post("/purchases", json=valid_purchase(days_per_unit=0))
 
     assert response.status_code == 201
     created = response.json()
     UUID(created["id"])
-    assert {"name", "category", "speed", "stock", "is_temporary"} <= created.keys()
-    assert (created["name"], created["category"], created["speed"], created["stock"]) == (
+    assert {
+        "name",
+        "category",
+        "unit",
+        "days_per_unit",
+        "buffer_days",
+        "stock",
+        "is_temporary",
+    } <= created.keys()
+    assert (created["name"], created["category"], created["days_per_unit"], created["stock"]) == (
         "牛乳",
         "食品",
         0,
         2,
     )
+    assert (created["unit"], created["buffer_days"]) == ("パック", 0)
+    assert "speed" not in created
     assert created["is_temporary"] is False
     assert created["created_at"] and created["updated_at"]
     assert "user_id" not in created

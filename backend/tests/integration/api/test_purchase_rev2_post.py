@@ -42,7 +42,9 @@ def payload(pair: tuple[str, str], **overrides: object) -> dict[str, object]:
     body: dict[str, object] = {
         "name": pair[0],
         "category": pair[1],
-        "speed": 1,
+        "unit": "パック",
+        "days_per_unit": 3,
+        "buffer_days": 0,
         "stock": 2,
         "is_temporary": False,
     }
@@ -120,8 +122,8 @@ def create_snapshot_and_rename(client: TestClient) -> tuple[str, dict[str, Any]]
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        pytest.param("speed", 1.0, id="speed-1.0"),
-        pytest.param("speed", "1", id="speed-string-1"),
+        pytest.param("days_per_unit", 1.0, id="days_per_unit-1.0"),
+        pytest.param("days_per_unit", "1", id="days_per_unit-string-1"),
         pytest.param("stock", 1.0, id="stock-1.0"),
         pytest.param("stock", "1", id="stock-string-1"),
     ],
@@ -144,10 +146,10 @@ def test_purc_004_tc13_integer_valued_non_integer_json_is_rejected_and_not_store
 @pytest.mark.parametrize(
     "overrides",
     [
-        pytest.param({"speed": 7}, id="speed"),
+        pytest.param({"days_per_unit": 7}, id="days_per_unit"),
         pytest.param({"stock": 9}, id="stock"),
         pytest.param({"is_temporary": True}, id="is_temporary"),
-        pytest.param({"speed": 3, "stock": 0, "is_temporary": True}, id="all-other-fields"),
+        pytest.param({"days_per_unit": 3, "stock": 0, "is_temporary": True}, id="all-other-fields"),
         pytest.param({}, id="identical"),
     ],
 )

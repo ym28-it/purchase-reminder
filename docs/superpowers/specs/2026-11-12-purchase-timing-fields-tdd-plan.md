@@ -179,12 +179,31 @@ PURC第2版の既存テスト（凍結済みTDDテストを含む）のうち、
 
 | Test Case ID | 実行コマンド | 実際の失敗 | Valid Red | 判定根拠 |
 |---|---|---|---|---|
-|  |  |  |  |  |
+| PTF-008-TC1 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | create後のPOSTが422（`speed`欠落）。`assert 422 == 201` | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-011-TC1 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | 登録のセットアップ`assert 422 == 201`で失敗（新フィールド未実装） | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-006-TC2 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | `assert 422 == 201`（`days_per_unit`を受け付けない） | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-002-TC2 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | 422の`loc`が`["body","speed"]`のみで`["body","days_per_unit"]`を含まない | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-001-TC3 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | `speed: 3`だけで`assert 201 == 422`（登録されてしまう） | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-003-TC4 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | 422の`loc`が`["body","speed"]`のみで`["body","buffer_days"]`を含まない | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-003-TC3 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | 同上（`buffer_days`の検証が未実装） | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-014-TC1 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | 422の`loc`が`["body","speed"]`のみで`["body","unit"]`を含まない | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-014-TC4 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | 同上（`unit`の検証が未実装） | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-013-TC1 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | 登録のセットアップ`assert 422 == 201`で失敗 | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-007-TC1 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | 登録のセットアップ`assert 422 == 201`で失敗 | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
+| PTF-012-TC1 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration tests/integration/api/test_purchase_ptf.py -q` | 登録のセットアップ`assert 422 == 201`で失敗 | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`・`stock_counted_at`）が未実装であることによる失敗。収集・import・環境・fixtureエラーなし |
 
-- 実装計画のRedタスク:
-- 環境スモーク・Baselineの結果:
-- 凍結したテストファイル:
-- Red記録コミットSHA:
+- 実装計画のRedタスク: Task 1 Backend Red（PTF-CORE-001〜007）
+- 環境スモーク・Baselineの結果: 変更前に unit 73 passed、integration 90 passed（Baselineと一致）
+- Red結果: `test_purchase_ptf.py` 12 failed（exit code 1）。変更後の全体は unit 72 passed / 1 failed（`test_purchase_create_errors.py`、422が返り500にならない）、integration 39 passed / 65 failed（104件。PTF 12件と第3版へ読み替えた既存53件が未実装を理由に失敗）
+- PURC第3版への読み替え（Test Plan Gateで承認済み、凍結済みPURC TDDテストを含む。変更点は基準入力の置換と`speed`→`days_per_unit`の改名のみで、下記以外の期待値は変えていない）:
+  - `test_purchase_create.py`: 基準入力を7項目へ。PURC-TDD-001の`speed=0`を`days_per_unit=0`へ、レスポンスの項目確認に新項目を追加（5項目の確認 → PTFの項目）
+  - `test_purchase_create_post.py`: 基準入力と`speed`→`days_per_unit`の改名。PURC-004-TC7（0・365）、TC8（負数・小数・366）の範囲を365上限へ。PURC-014-TC2の非キー項目に`unit`・`buffer_days`を追加（PTF-016）。`PurchaseItem(...)`の直接生成を新4項目つきへ。保存値の比較に`unit`・`buffer_days`を追加
+  - `test_purchase_rev2_post.py`: 基準入力と`speed`→`days_per_unit`の改名のみ
+  - `test_purchase_uniqueness_rev2.py`: 基準入力と`speed`→`days_per_unit`の改名のみ
+  - `test_purchase_rename_self_race.py`: 変更なし（`test_purchase_uniqueness_rev2.py`の基準入力を共有して読み替わる）
+  - `tests/unit/api/test_purchase_create_errors.py`: 登録リクエストの基準入力のみ
+- 凍結したテストファイル: `backend/tests/integration/api/test_purchase_ptf.py`
+- Red記録コミットSHA: 本コミット（`git log`で確認）
 
 ### Green
 
