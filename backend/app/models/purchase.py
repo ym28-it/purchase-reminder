@@ -185,6 +185,28 @@ def _unchanged_since_read(old: PurchaseItem) -> dict[str, Any]:
     }
 
 
+def _unchanged_since_read_for_edit(old: PurchaseItem) -> dict[str, Any]:
+    """編集の書き込み条件: 名前・カテゴリに加えて``updated_at``も読み取り時のまま。
+
+    ``edit``は読み取った値（在庫など）から結果を決めるため、読み取り後の他の書き込みを
+    見落とすと``stock_counted_at``が実際の在庫変更と食い違う。どの書き込みも``updated_at``を
+    進めるので、これを条件にして競合時は読み直して``edit``を適用し直す。
+    削除は読み取った値へ依存しないため、名前・カテゴリだけの条件のままにする。
+    """
+    condition = _unchanged_since_read(old)
+    return {
+        "ConditionExpression": f"{condition['ConditionExpression']} AND #updated_at = :updated_at",
+        "ExpressionAttributeNames": {
+            **condition["ExpressionAttributeNames"],
+            "#updated_at": "updated_at",
+        },
+        "ExpressionAttributeValues": {
+            **condition["ExpressionAttributeValues"],
+            ":updated_at": old.to_item()["updated_at"],
+        },
+    }
+
+
 def put_purchase_item(
     user_id: str,
     id: UUID,
@@ -198,7 +220,8 @@ def put_purchase_item(
     最新の値へ適用し直すので、``created_at``などの引き継ぎ値が古くならない。
     同じキー（``user_id``+``id``）のアイテムが存在しなければ``ItemNotFoundError``。
     別の購入物と同じ名前・カテゴリへ変更しようとした場合は``ItemAlreadyExistsError``。
-    読み取り後に他の操作が名前・カテゴリを変えていた場合は、読み直して再試行する。
+    読み取り後に他の操作が書き込んでいた（``updated_at``が変わっていた）場合は、
+    読み直して``edit``を適用し直し、再試行する。
     """
     table = get_table(table_name)
     key = PurchaseItem.build_key(user_id=user_id, id=id)
@@ -216,7 +239,13 @@ def put_purchase_item(
         ):
             raise ItemAlreadyExistsError(DUPLICATE_PURCHASE_MESSAGE)
         actions: list[dict[str, Any]] = [
-            {"Put": {"TableName": table.name, "Item": item.to_item(), **_unchanged_since_read(old)}}
+            {
+                "Put": {
+                    "TableName": table.name,
+                    "Item": item.to_item(),
+                    **_unchanged_since_read_for_edit(old),
+                }
+            }
         ]
         if changed:
             actions.append({"Delete": {"TableName": table.name, "Key": _unique_key(old)}})
