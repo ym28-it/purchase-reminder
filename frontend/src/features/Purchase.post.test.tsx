@@ -26,9 +26,12 @@ type Item = {
 	id: string;
 	name: string;
 	category: string;
-	speed: number;
+	unit: string;
+	days_per_unit: number;
+	buffer_days: number;
 	stock: number;
 	is_temporary: boolean;
+	stock_counted_at: string;
 	created_at: string;
 	updated_at: string;
 };
@@ -37,9 +40,12 @@ const created: Item = {
 	id: "aef5de6b-046d-48d2-a84b-df6c989643d0",
 	name: "牛乳",
 	category: "食品",
-	speed: 3,
+	unit: "パック",
+	days_per_unit: 3,
+	buffer_days: 2,
 	stock: 4,
 	is_temporary: true,
+	stock_counted_at: "2026-09-27T00:00:00Z",
 	created_at: "2026-09-27T00:00:00Z",
 	updated_at: "2026-09-27T00:00:00Z",
 };
@@ -117,28 +123,35 @@ function inputs(dialog: HTMLElement) {
 	return {
 		name: within(dialog).getByLabelText(/^名前$/),
 		category: within(dialog).getByLabelText(/^カテゴリ$/),
-		speed: within(dialog).getByLabelText(/消費スピード/),
-		stock: within(dialog).getByLabelText(/現在の在庫/),
+		unit: within(dialog).getByLabelText(/^購入単位/),
+		days: within(dialog).getByLabelText(/使い切る日数/),
+		buffer: within(dialog).getByLabelText(/余裕日数/),
+		stock: within(dialog).getByLabelText(/^在庫/),
 		isTemporary: within(dialog).getByLabelText(/一時的な購入/),
 	};
 }
 
-async function fillAllFive(user: User, dialog: HTMLElement) {
+async function fillAllInputs(user: User, dialog: HTMLElement) {
 	const field = inputs(dialog);
 	await user.type(field.name, created.name);
 	await user.type(field.category, created.category);
-	await user.clear(field.speed);
-	await user.type(field.speed, String(created.speed));
+	await user.type(field.unit, created.unit);
+	await user.clear(field.days);
+	await user.type(field.days, String(created.days_per_unit));
+	await user.clear(field.buffer);
+	await user.type(field.buffer, String(created.buffer_days));
 	await user.clear(field.stock);
 	await user.type(field.stock, String(created.stock));
 	await user.click(field.isTemporary);
 }
 
-function expectAllFiveRetained(dialog: HTMLElement) {
+function expectAllInputsRetained(dialog: HTMLElement) {
 	const field = inputs(dialog);
 	expect(field.name).toHaveValue(created.name);
 	expect(field.category).toHaveValue(created.category);
-	expect(field.speed).toHaveValue(created.speed);
+	expect(field.unit).toHaveValue(created.unit);
+	expect(field.days).toHaveValue(created.days_per_unit);
+	expect(field.buffer).toHaveValue(created.buffer_days);
 	expect(field.stock).toHaveValue(created.stock);
 	expect(field.isTemporary).toBeChecked();
 }
@@ -147,7 +160,9 @@ function expectInitialValues(dialog: HTMLElement) {
 	const field = inputs(dialog);
 	expect(field.name).toHaveValue("");
 	expect(field.category).toHaveValue("");
-	expect(field.speed).toHaveValue(0);
+	expect(field.unit).toHaveValue("");
+	expect(field.days).toHaveValue(0);
+	expect(field.buffer).toHaveValue(0);
 	expect(field.stock).toHaveValue(0);
 	expect(field.isTemporary).not.toBeChecked();
 }
@@ -159,7 +174,9 @@ function submitButton(dialog: HTMLElement) {
 const sentBody = {
 	name: created.name,
 	category: created.category,
-	speed: created.speed,
+	unit: created.unit,
+	days_per_unit: created.days_per_unit,
+	buffer_days: created.buffer_days,
 	stock: created.stock,
 	is_temporary: true,
 };
@@ -206,7 +223,7 @@ describe("PURC-010 / PURC-011 / PURC-012-TC4: successful registration", () => {
 		await screen.findByText("まだ登録されていません");
 
 		const dialog = await openDialog(user);
-		await fillAllFive(user, dialog);
+		await fillAllInputs(user, dialog);
 		await user.click(submitButton(dialog));
 
 		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -233,7 +250,7 @@ describe("PURC-013: duplicate submission from the same screen operation", () => 
 		postHandlers = [() => new Promise<Response>(() => undefined)];
 		renderList();
 		const dialog = await openDialog(user);
-		await fillAllFive(user, dialog);
+		await fillAllInputs(user, dialog);
 		await user.click(submitButton(dialog));
 
 		await waitFor(() => expect(submitButton(dialog)).toBeDisabled());
@@ -248,7 +265,7 @@ describe("PURC-013: duplicate submission from the same screen operation", () => 
 		postHandlers = [() => json(201, created)];
 		renderList();
 		const dialog = await openDialog(user);
-		await fillAllFive(user, dialog);
+		await fillAllInputs(user, dialog);
 		await user.dblClick(submitButton(dialog));
 
 		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -303,18 +320,18 @@ const failures: Failure[] = [
 
 describe("PURC-015 / PURC-016 / PURC-017 / PURC-018: failed registration", () => {
 	test.each(failures)(
-		"$name; keeps all five inputs and does not auto-retry",
+		"$name; keeps all inputs and does not auto-retry",
 		async ({ respond, message }) => {
 			const user = userEvent.setup();
 			postHandlers = [respond];
 			renderList();
 			const dialog = await openDialog(user);
-			await fillAllFive(user, dialog);
+			await fillAllInputs(user, dialog);
 			await user.click(submitButton(dialog));
 
 			expect(await within(dialog).findByText(message)).toBeInTheDocument();
 			expect(screen.getByRole("dialog")).toBe(dialog);
-			expectAllFiveRetained(dialog);
+			expectAllInputsRetained(dialog);
 			for (const leaked of [
 				"Traceback",
 				"secret-internal-table",
@@ -343,7 +360,7 @@ describe("PURC-015 / PURC-016 / PURC-017 / PURC-018: failed registration", () =>
 		];
 		renderList();
 		const dialog = await openDialog(user);
-		await fillAllFive(user, dialog);
+		await fillAllInputs(user, dialog);
 		await user.click(submitButton(dialog));
 		const duplicate = (await within(dialog).findByText(/既に存在|重複/))
 			.textContent;
@@ -365,7 +382,7 @@ describe("PURC-015 / PURC-016 / PURC-017 / PURC-018: failed registration", () =>
 		];
 		renderList();
 		const dialog = await openDialog(user);
-		await fillAllFive(user, dialog);
+		await fillAllInputs(user, dialog);
 		await user.click(submitButton(dialog));
 		await within(dialog).findByText(/失敗/);
 		expect(postCount()).toBe(1);

@@ -205,6 +205,28 @@ PURC第2版の既存テスト（凍結済みTDDテストを含む）のうち、
 - 凍結したテストファイル: `backend/tests/integration/api/test_purchase_ptf.py`
 - Red記録コミットSHA: 本コミット（`git log`で確認）
 
+### Red（frontend）
+
+| Test Case ID | 実行コマンド | 実際の失敗 | Valid Red | 判定根拠 |
+|---|---|---|---|---|
+| PTF-001-TC1（PTF-TDD-013） | `cd frontend && bun run test -- --run src/features/CreatePurchaseDialog.ptf.test.tsx src/features/Purchase.ptf.test.tsx` | `Unable to find a label with the text of: /^購入単位/` | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`の入力欄、単位名付きの表示）が未実装であることによる失敗。収集・import・環境エラーなし |
+| PTF-003-TC5（PTF-TDD-014） | `cd frontend && bun run test -- --run src/features/CreatePurchaseDialog.ptf.test.tsx src/features/Purchase.ptf.test.tsx` | 同上（購入単位の入力欄がなく、登録操作の前で失敗） | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`の入力欄、単位名付きの表示）が未実装であることによる失敗。収集・import・環境エラーなし |
+| PTF-015-TC2（PTF-TDD-015） | `cd frontend && bun run test -- --run src/features/CreatePurchaseDialog.ptf.test.tsx src/features/Purchase.ptf.test.tsx` | 一覧の購入物に`2パック`が含まれない（`toHaveTextContent`） | Yes | 新項目（`unit`・`days_per_unit`・`buffer_days`の入力欄、単位名付きの表示）が未実装であることによる失敗。収集・import・環境エラーなし |
+
+- 実装計画のRedタスク: Task 3 Frontend Red（PTF-CORE-008、009）
+- 環境スモーク・Baselineの結果: 変更前のfrontend Vitestは8ファイル・77件すべてPass
+- Red結果: PTF新規テスト3件がfailed（exit code 1）。変更後の全体は80件中79 failed / 1 passed（PTF 3件と、第3版へ読み替えた既存テスト76件が未実装を理由に失敗。残る1件は変更後も成立する既存テスト）
+- 型検査（`bun run build`）はschema.d.tsの更新で製品コードが失敗する想定のためTask 4で対応し、本タスクでは実行しない
+- PURC第3版への読み替え（人間承認済み、凍結済みPURC TDDテストを含む。変更点は基準入力の置換、`speed`→`days_per_unit`の改名、ラベル（購入単位`/^購入単位/`、日数`/使い切る日数/`、余裕日数`/余裕日数/`、在庫`/^在庫/`）の読み替え、モックのレスポンスと送信本文への新項目の追加のみ。下記以外の期待値は変えていない）:
+  - `CreatePurchaseDialog.test.tsx`（PURC-TDD-003）: 消費スピードのラベルを`/使い切る日数/`へ
+  - `Purchase.test.tsx`（PURC-TDD-002）: 入力・送信本文・レスポンスをPTFの項目へ。表示確認は`消費スピード 0`・`在庫 2`を、PTF-015の表示`2パック`へ置換（日数0の表示は論理テストケースで定義されないため断定しない）
+  - `CreatePurchaseDialog.rev2.test.tsx`（PURC-TDD-012〜014）: 基準入力に購入単位を追加し、`speed`→`days`の改名。初期値・入力保持・無関係な項目にエラーがないことの確認に新項目を追加
+  - `CreatePurchaseDialog.post.test.tsx`: 基準入力と`speed`→`days`の改名。PURC-004-TC7（0・365）、TC8（負数・小数・366）の範囲を365上限へ。送信本文に`unit`・`buffer_days`を追加。初期値の確認を7項目へ（PTF-001-TC1、PTF-003-TC1）
+  - `CreatePurchaseDialog.rev2.post.test.tsx`: 基準入力と`speed`→`days`の改名。API 422の`loc`を`days_per_unit`へ。項目別エラー確認の対象に新項目を追加
+  - `Purchase.post.test.tsx`: モックのレスポンスと入力・送信本文に新項目を追加し（余裕日数は保持確認のため2を入力）、`speed`→`days`の改名。関数名・テスト名の「5項目」表現を改称
+- 凍結したテストファイル: `frontend/src/features/CreatePurchaseDialog.ptf.test.tsx`、`frontend/src/features/Purchase.ptf.test.tsx`
+- Red記録コミットSHA: 本コミット（`git log`で確認）
+
 ### Green
 
 | Test Case ID | 実行コマンド | 結果 |

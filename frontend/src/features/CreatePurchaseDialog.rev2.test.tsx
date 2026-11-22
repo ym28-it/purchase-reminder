@@ -25,14 +25,16 @@ const fetchMock = vi.hoisted(() => {
 import { queryClient } from "@/api/queryClient";
 import { Purchase } from "@/features/Purchase";
 
-type FieldKey = "name" | "category" | "speed" | "stock";
+type FieldKey = "name" | "category" | "unit" | "days" | "buffer" | "stock";
 type User = ReturnType<typeof userEvent.setup>;
 
 const label: Record<FieldKey, RegExp> = {
 	name: /^名前$/,
 	category: /^カテゴリ$/,
-	speed: /消費スピード/,
-	stock: /現在の在庫/,
+	unit: /^購入単位/,
+	days: /使い切る日数/,
+	buffer: /余裕日数/,
+	stock: /^在庫/,
 };
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -111,7 +113,8 @@ async function setValue(user: User, key: FieldKey, value: string) {
 async function fillValid(user: User) {
 	await setValue(user, "name", "牛乳");
 	await setValue(user, "category", "食品");
-	await setValue(user, "speed", "3");
+	await setValue(user, "unit", "パック");
+	await setValue(user, "days", "3");
 	await setValue(user, "stock", "4");
 	await user.click(temporary());
 }
@@ -119,7 +122,8 @@ async function fillValid(user: User) {
 function expectFilledValuesKept() {
 	expect(field("name")).toHaveValue("牛乳");
 	expect(field("category")).toHaveValue("食品");
-	expect(field("speed")).toHaveValue(3);
+	expect(field("unit")).toHaveValue("パック");
+	expect(field("days")).toHaveValue(3);
 	expect(field("stock")).toHaveValue(4);
 	expect(temporary()).toBeChecked();
 }
@@ -167,7 +171,9 @@ test("PURC-TDD-012 (PURC-020-TC1; CORE-005): reopening after a failed registrati
 	expect(reopened.textContent).toBe(freshText);
 	expect(field("name")).toHaveValue("");
 	expect(field("category")).toHaveValue("");
-	expect(field("speed")).toHaveValue(0);
+	expect(field("unit")).toHaveValue("");
+	expect(field("days")).toHaveValue(0);
+	expect(field("buffer")).toHaveValue(0);
 	expect(field("stock")).toHaveValue(0);
 	expect(temporary()).not.toBeChecked();
 });
@@ -197,7 +203,9 @@ test("PURC-TDD-013 (PURC-021-TC1; CORE-005): an API 422 for name keeps the dialo
 	expect(screen.getByRole("dialog")).toBeInTheDocument();
 	expectFilledValuesKept();
 	expect(fieldErrorText("category")).toBe("");
-	expect(fieldErrorText("speed")).toBe("");
+	expect(fieldErrorText("unit")).toBe("");
+	expect(fieldErrorText("days")).toBe("");
+	expect(fieldErrorText("buffer")).toBe("");
 	expect(fieldErrorText("stock")).toBe("");
 });
 
