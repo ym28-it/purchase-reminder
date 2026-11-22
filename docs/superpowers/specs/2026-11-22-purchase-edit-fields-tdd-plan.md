@@ -8,7 +8,7 @@
 | 論理テストケースSSOT | `docs/superpowers/specs/2026-11-22-purchase-edit-fields-test-cases.md` |
 | 論理テストケースの参照コミット | `90f68f9` |
 | 変更単位 | 購入物の編集で、登録と同じ全7項目を、登録と同じ検証で変更して永続化する |
-| 文書状態 | Draft |
+| 文書状態 | Core Approved |
 
 論理テストケースの期待結果をこの文書で再定義しない。期待結果はTest Case IDを通じてSSOTを参照する。
 
@@ -23,7 +23,7 @@
 
 ## 既存テストへの影響（メモ）
 
-既存のPUTを使うテストの多くは、`unit`と`buffer_days`を送らない、または小数の在庫・`days_per_unit`を送る前提である（`backend/tests/integration/api/`の`test_purchase_ptf.py`、`test_purchase_ptf_post.py`、`test_purchase_rev2_post.py`、`test_purchase_uniqueness_rev2.py`、`test_purchase_rename_self_race.py`、`backend/tests/unit/domain/test_purchase_edit.py`、`frontend/src/features/Purchase.ptf.post.test.tsx`など）。PEDTの承認を根拠に書き直す対象であり、期待動作が変わらないものは編集の入力へ`unit`と`buffer_days`を加える改名だけを行う（設計書 §5）。凍結済みテストの書き直しの扱いは、実装計画で定める。
+既存のPUTを使うテストの多くは、`unit`と`buffer_days`を送らない、または小数の在庫・`days_per_unit`を送る前提である（`backend/tests/integration/api/`の`test_purchase_ptf.py`、`test_purchase_ptf_post.py`、`test_purchase_rev2_post.py`、`test_purchase_uniqueness_rev2.py`、`test_purchase_rename_self_race.py`、`backend/tests/unit/domain/test_purchase_edit.py`、`frontend/src/features/Purchase.ptf.post.test.tsx`など）。PEDTの承認を根拠に書き直す対象であり、期待動作が変わらないものは編集の入力へ`unit`と`buffer_days`を加える改名だけを行う（設計書 §5）。書き直しは承認済み（2026-11-22 ym28-it）。書き直しの単位と順序は実装計画で定める。
 
 ## 仕様不足・判断保留
 
@@ -43,7 +43,6 @@
 | PEDT-CORE-006 | 編集後も、別の購入物と同じ名前・カテゴリへの変更は購入単位が違っても409で拒否され、購入単位だけの変更は自分自身との重複にならず保存される | PEDT-009 | PEDT-009-TC1, PEDT-009-TC2 | 3 / 4 | PURC-023・PTF-016の既存テスト（`test_purchase_uniqueness_rev2.py`、`test_purchase_rev2_post.py`。PUTの入力が旧形式のため書き直し対象） | TC1は代表回帰（書き直し後に既存保護、Red例外）。TC2は購入単位が変更されないためRed | 候補 |
 | PEDT-CORE-007 | 編集ダイアログに全7項目があり、保存済みの値が初期値で、保存すると全7項目が送信されて一覧に反映される。購入単位・余裕日数を変えない編集では保存済みの値のまま残る | PEDT-007, 010 | PEDT-007-TC1, PEDT-007-TC2, PEDT-007-TC4, PEDT-010-TC1 | 1 / 2 / 4 / 5 | `Purchase.ptf.post.test.tsx`のPTF-012-TC1（UI側、購入単位・余裕日数を送らないことを検証。期待が反転するため書き直し対象） | 適格。入力欄がなく送信項目が足りないためRed | 候補 |
 | PEDT-CORE-008 | 編集ダイアログの入力検証は登録ダイアログと同じ結果になる。範囲外・小数・空は送信せず項目ごとにエラーを表示し、境界値（0、30、100,000、10文字）は送信する | PEDT-008 | PEDT-008-TC1, PEDT-008-TC2 | 3 / 4 | なし（編集ダイアログは名前・カテゴリ・日数・在庫・一時的な購入だけ、上限なし） | 適格。現在は上限・小数・購入単位の検証がなく、0を拒否するためRed | 候補 |
-| PEDT-CORE-009 | 編集の入力に、受け取らない項目（在庫を数えた日時、作成日時、更新日時、ID）や`speed`が含まれていても保存されず、IDと作成日時は変わらない | PEDT-001 | PEDT-001-TC3 | 3 / 5 | なし（登録側のみ。PTF-006-TC2） | 例外（Characterization）。未知の項目を無視するのはPydanticの既存の振る舞いで、追加時点からGreenの見込み。信頼境界を越える入力で、操作対象のすり替えを防ぐ回帰として提案する | 候補（人間の判断を求める） |
 
 選定条件:
 
@@ -57,6 +56,7 @@
 
 | Test Case ID | 候補外の理由 | 暫定的な検証先 |
 |---|---|---|
+| PEDT-001-TC3 | 受け取らない項目（`id`、`created_at`、`stock_counted_at`など）や`speed`を無視するのは、Pydanticの既存の振る舞いと編集の適用処理の引数が決まっていることで成立し、最初からGreenになる見込みの回帰である（中心的契約PEDT-CORE-009として提案したが、2026-11-22に人間が候補外とした。IDは欠番） | Integration（API） |
 | PEDT-006-TC4 | 在庫を変えない複数項目の同時変更は、PEDT-006-TC2・TC3と同じ契約の組み合わせで、新しい失敗の仕方がない | Unit（編集の適用）またはIntegration（API） |
 | PEDT-007-TC3 | 文言を固定しない契約で、自動テストの期待値を一意に決められない（PTF-010-TC1と同じ） | Component（項目名に日数・購入単位を含むことの確認）とレビュー |
 | PEDT-008-TC3 | 入力エラーの解除は、フォームライブラリの標準の振る舞いで、アプリ固有の契約ではない | Component |
@@ -69,28 +69,28 @@
 
 ## スクリーニング結果
 
-論理テストケース28件のうち、中心的契約に対応するのは21件（候補は9契約）、候補外は7件である。全28件に、候補または候補外のどちらかを割り当てた。
+論理テストケース28件のうち、中心的契約に対応するのは20件（8契約）、候補外は8件である。全28件に、候補または候補外のどちらかを割り当てた。
 
 ## Core Contract Gate
 
 - [x] 論理テストケースの参照コミットを記録した
-- [x] すべての論理テストケースをスクリーニングした（28件: 候補21件、候補外7件）
-- [ ] 機能目的を代表する契約が含まれている（PEDT-CORE-001、007）
-- [ ] 許容できない重大リスクが含まれている（PEDT-CORE-002、003、005、006、009: 不正値の保存、在庫を数えた日時の誤更新、重複、受け取らない項目の保存）
-- [ ] 網羅目的の詳細を中心的契約へ含めていない
-- [ ] 各契約の仕様IDとTest Case IDが正しい
-- [ ] 候補外の理由と暫定的な検証先が妥当である
+- [x] すべての論理テストケースをスクリーニングした（28件: 候補20件、候補外8件）
+- [x] 機能目的を代表する契約が含まれている（PEDT-CORE-001、007）
+- [x] 許容できない重大リスクが含まれている（PEDT-CORE-002、003、005、006: 不正値の保存、在庫を数えた日時の誤更新、重複）
+- [x] 網羅目的の詳細を中心的契約へ含めていない
+- [x] 各契約の仕様IDとTest Case IDが正しい
+- [x] 候補外の理由と暫定的な検証先が妥当である
 - [x] AIが仕様上の判断を暗黙に追加していない
 - [x] Blockingな判断保留が残っていない
-- [ ] 人間が中心的契約と対応Test Case IDを承認した
+- [x] 人間が中心的契約と対応Test Case IDを承認した
 
 ### 承認記録
 
-- 承認したContract ID:
-- 修正・除外した候補:
-- 承認者:
-- 承認日:
-- 備考:
+- 承認したContract ID: PEDT-CORE-001〜008
+- 修正・除外した候補: PEDT-CORE-009を除外し、PEDT-001-TC3を候補外（Integration）へ移した。IDは欠番とする
+- 承認者: ym28-it
+- 承認日: 2026-11-22
+- 備考: 既存のPUT関連テスト（凍結済みを含む）は、PEDTの承認を根拠に書き直すことを承認した（2026-11-22 ym28-it）
 
 Core Contract Gate通過前に、最小TDDテストセット、テストコード、実装コードを確定しない。
 
