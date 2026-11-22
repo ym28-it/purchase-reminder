@@ -238,6 +238,15 @@ PURC第2版の既存テスト（凍結済みTDDテストを含む）のうち、
 - 凍結済みテストの差分確認: `git diff 0690622 -- backend/tests/integration/api/test_purchase_ptf.py`は差分なし（コミット前後で確認）
 - Green記録コミットSHA: `e849821`（Green）、修正ラウンド: 本記録を含むコミット（`git log`で確認。編集の書き込み条件へ`updated_at`を追加し、読み取り後の他の書き込みと競合したら再読込して`edit`を適用し直す）
 
+### Green（Frontend、Task 4）
+
+| 対象 | 実行コマンド | 結果 |
+|---|---|---|
+| `CreatePurchaseDialog.ptf.test.tsx`、`Purchase.ptf.test.tsx`（PTF-CORE frontend）とv3へ書き換えた既存PURCテスト | `cd frontend && bun run lint && bun run format:check && bun run test -- --run && bun run build` | exit 0、Vitest 8 files / 80 tests passed、build成功 |
+
+- 実装計画のGreenタスク: Task 4（Frontend Green）。変更: `CreatePurchaseDialog.tsx`（unit・daysPerUnit・bufferDays追加、`quantity`に上限引数）、`Purchase.tsx`（`1{unit}{days_per_unit}日`・`余裕 {buffer_days}日`・在庫バッジ単位付き）、`EditPurchaseDialog.tsx`（`speed`→`days_per_unit`、ラベル改称）
+- 凍結済みテストの差分確認: `git diff f1d260b -- frontend/src/features/CreatePurchaseDialog.ptf.test.tsx frontend/src/features/Purchase.ptf.test.tsx`は差分なし
+
 ### Refactor・回帰
 
 - 実行コマンド: `ruff check .`、`ruff format --check .`、`pytest -m "not integration" -q`（いずれも`backend/`から`../bin/mise exec -- uv run`経由）
