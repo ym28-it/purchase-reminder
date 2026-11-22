@@ -35,7 +35,9 @@ def create_purchase_endpoint(
         user_id=user_id,
         name=request.name,
         category=request.category,
-        speed=request.speed,
+        unit=request.unit,
+        days_per_unit=request.days_per_unit,
+        buffer_days=request.buffer_days,
         stock=request.stock,
         is_temporary=request.is_temporary,
     )
@@ -53,7 +55,7 @@ def put_purchase_endpoint(
         id=purchase_id,
         name=request.name,
         category=request.category,
-        speed=request.speed,
+        days_per_unit=request.days_per_unit,
         stock=request.stock,
         is_temporary=request.is_temporary,
     )

@@ -59,10 +59,20 @@ export interface components {
 			/** Category */
 			category: string;
 			/**
-			 * Speed
-			 * @description 消費スピード
+			 * Unit
+			 * @description 数量の単位
 			 */
-			speed: number;
+			unit: string;
+			/**
+			 * Days Per Unit
+			 * @description 1単位を使い切る日数
+			 */
+			days_per_unit: number;
+			/**
+			 * Buffer Days
+			 * @description 余裕日数
+			 */
+			buffer_days: number;
 			/**
 			 * Stock
 			 * @description 現在の在庫
@@ -84,10 +94,10 @@ export interface components {
 			/** Category */
 			category: string;
 			/**
-			 * Speed
-			 * @description 消費スピード
+			 * Days Per Unit
+			 * @description 1単位を使い切る日数
 			 */
-			speed: number;
+			days_per_unit: number;
 			/**
 			 * Stock
 			 * @description 現在の在庫
@@ -113,12 +123,21 @@ export interface components {
 			name: string;
 			/** Category */
 			category: string;
-			/** Speed */
-			speed: number;
+			/** Unit */
+			unit: string;
+			/** Days Per Unit */
+			days_per_unit: number;
+			/** Buffer Days */
+			buffer_days: number;
 			/** Stock */
 			stock: number;
 			/** Is Temporary */
 			is_temporary: boolean;
+			/**
+			 * Stock Counted At
+			 * Format: date-time
+			 */
+			stock_counted_at: string;
 			/**
 			 * Created At
 			 * Format: date-time

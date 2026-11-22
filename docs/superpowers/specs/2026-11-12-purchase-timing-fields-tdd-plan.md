@@ -209,17 +209,17 @@ PURC第2版の既存テスト（凍結済みTDDテストを含む）のうち、
 
 | Test Case ID | 実行コマンド | 結果 |
 |---|---|---|
-|  |  |  |
+| `test_purchase_ptf.py`の12件を含むbackend integration全件 | `cd backend && ../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration -q` | exit 0、104 passed |
 
-- 実装計画のGreenタスク:
-- 凍結済みテストの差分確認:
-- Green記録コミットSHA:
+- 実装計画のGreenタスク: Task 2（Backend Green）
+- 凍結済みテストの差分確認: `git diff 0690622 -- backend/tests/integration/api/test_purchase_ptf.py`は差分なし（コミット前後で確認）
+- Green記録コミットSHA: 本コミット（`git log`で確認）
 
 ### Refactor・回帰
 
-- 実行コマンド:
-- 結果:
-- 未実行の検証と理由:
+- 実行コマンド: `ruff check .`、`ruff format .`、`pytest -m "not integration" -q`（いずれも`backend/`から`../bin/mise exec -- uv run`経由）
+- 結果: ruff Pass、unit 73 passed、integration 104 passed。`frontend/src/api/schema.d.ts`をOpenAPIから再生成済み
+- 未実行の検証と理由: frontendの型検査・テストはTask 4で対応するため未実行（schema.d.tsの項目変更で失敗する想定）
 
 ## TDD Green Gate
 
