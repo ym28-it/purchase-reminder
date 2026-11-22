@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import type { PurchaseResponse } from "@/api/purchases";
 import { Button } from "@/components/ui/button";
@@ -24,12 +25,12 @@ export function EditPurchaseDialog({
 	const {
 		register,
 		handleSubmit,
+		reset,
 		formState: { errors },
 	} = useForm({
 		resolver: zodResolver(purchaseFormSchema),
-		// purchaseが変わる（別の行を編集し始める）たびにこの値でフォームを再初期化する。
-		// react-hook-formのvaluesオプションが、参照が変わった時の再同期を面倒見てくれるので
-		// useEffectで手動リセットする必要はない。
+		// purchaseの中身が変わる（別の行を編集し始める）たびにこの値でフォームを再初期化する。
+		// 同じ購入物を開き直す場合は値が変わらず再同期されないため、下のeffectで開くたびにリセットする。
 		values: purchase
 			? {
 					name: purchase.name,
@@ -43,6 +44,13 @@ export function EditPurchaseDialog({
 			: undefined,
 	});
 	const putPurchase = usePutPurchase();
+
+	// 開くたびに保存済みの値へ戻す（閉じる前の未保存・不正な入力を持ち越さない）。
+	// reset()はvaluesオプション由来の保存済みの値へ戻す。
+	const isOpen = purchase !== null;
+	useEffect(() => {
+		if (isOpen) reset();
+	}, [isOpen, reset]);
 
 	const onSubmit = handleSubmit((values) => {
 		if (!purchase) return;

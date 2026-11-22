@@ -221,3 +221,11 @@ TDD = 凍結済みの`test_purchase_edit_fields.py`（`te`）、`Purchase.edit.t
 - [x] 未実行の検証と残存リスクを明示した
 - [x] 仕様または論理テストケースの変更時に影響する承認を取り直した（仕様・論理テストケースの変更なし）
 - [ ] 人間がテスト内容、実行結果、対象外理由、残存リスクを確認した
+
+## 最終レビュー指摘（Minor 1）の修正記録
+
+- 不具合: 編集ダイアログで未保存・不正な入力をしたまま閉じ、同じ購入物を開き直すと、保存済みの値ではなく放棄した入力が再表示された（PEDT-007「全項目の初期値は保存済みの値」違反。PEDT-007-TC2は別の購入物への切り替えのみ）。原因は`useForm({ values })`が深い比較で同値のため再初期化せず、`shouldUnregister:false`が入力値を保持すること。
+- 追加テスト（1件のみ）: `Purchase.edit.post.test.tsx` の `PEDT-007 (reopen): re-opening the same purchase after abandoning an edit shows the saved values`。
+- Valid Red: `bun run test -- --run src/features/Purchase.edit.post.test.tsx` で当該テストのみ失敗（20 passed / 1 failed）。`expect(element).toHaveValue(パック)` が `Received: abandoned`。セレクタやモックの不備ではなく放棄した入力の持ち越し（コミット c61693c）。
+- 修正: `EditPurchaseDialog.tsx` で、ダイアログが開く（`purchase`がnullでなくなる）たびに`reset()`で保存済みの値へ戻すeffectを追加。依存は開閉の真偽値のみで、再取得による`purchase`参照変更では入力を消さない。
+- 結果: `bun run test -- --run` 129 passed（11 files、凍結テストと既存テストはすべて緑）、`bun run lint` / `format:check` / `build` 成功。人間のSlice Complete判断は未実施のまま。
