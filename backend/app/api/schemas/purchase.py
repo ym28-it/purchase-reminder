@@ -6,8 +6,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class PurchaseCreateRequest(BaseModel):
-    """購入物の新規作成リクエスト。"""
+class PurchaseWriteRequest(BaseModel):
+    """購入物の登録・更新で共通の7項目と入力検証。"""
 
     name: str = Field(min_length=1, max_length=50)
     category: str = Field(min_length=1, max_length=30)
@@ -25,14 +25,12 @@ class PurchaseCreateRequest(BaseModel):
         return value
 
 
-class PurchasePutRequest(BaseModel):
-    """購入物の更新リクエスト。"""
+class PurchaseCreateRequest(PurchaseWriteRequest):
+    """購入物の新規作成リクエスト。"""
 
-    name: str = Field(min_length=1)
-    category: str = Field(min_length=1)
-    days_per_unit: float = Field(gt=0, description="1単位を使い切る日数")
-    stock: float = Field(ge=0, description="現在の在庫")
-    is_temporary: bool = False
+
+class PurchasePutRequest(PurchaseWriteRequest):
+    """購入物の更新リクエスト（登録と同じ7項目・同じ検証）。"""
 
 
 class PurchaseResponse(BaseModel):

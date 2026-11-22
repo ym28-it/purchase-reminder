@@ -37,6 +37,8 @@ def edit(current: Purchase, **overrides: object) -> Purchase:
     values: dict[str, object] = {
         "name": current.name,
         "category": current.category,
+        "unit": current.unit,
+        "buffer_days": current.buffer_days,
         "days_per_unit": current.days_per_unit,
         "stock": current.stock,
         "is_temporary": current.is_temporary,
@@ -68,13 +70,13 @@ def test_review_focus_5_integer_and_float_stock_are_the_same_stock(
     assert edited.stock_counted_at == REGISTERED_AT
 
 
-def test_review_focus_1_and_ptf_012_edit_keeps_created_at_unit_and_buffer_days() -> None:
+def test_review_focus_1_and_ptf_012_edit_keeps_created_at_replaces_unit_buffer() -> None:
     current = registered()
 
-    edited = edit(current, days_per_unit=5, stock=9)
+    edited = edit(current, unit="個", buffer_days=7, days_per_unit=5, stock=9)
 
     assert edited.created_at == REGISTERED_AT
-    assert (edited.unit, edited.buffer_days) == ("パック", 2)
+    assert (edited.unit, edited.buffer_days) == ("個", 7)
     assert edited.days_per_unit == 5
     assert edited.id == current.id
     assert edited.user_id == current.user_id

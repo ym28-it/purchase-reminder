@@ -86,7 +86,7 @@ export interface components {
 		};
 		/**
 		 * PurchasePutRequest
-		 * @description 購入物の更新リクエスト。
+		 * @description 購入物の更新リクエスト（登録と同じ7項目・同じ検証）。
 		 */
 		PurchasePutRequest: {
 			/** Name */
@@ -94,10 +94,20 @@ export interface components {
 			/** Category */
 			category: string;
 			/**
+			 * Unit
+			 * @description 数量の単位
+			 */
+			unit: string;
+			/**
 			 * Days Per Unit
 			 * @description 1単位を使い切る日数
 			 */
 			days_per_unit: number;
+			/**
+			 * Buffer Days
+			 * @description 余裕日数
+			 */
+			buffer_days: number;
 			/**
 			 * Stock
 			 * @description 現在の在庫
@@ -105,7 +115,7 @@ export interface components {
 			stock: number;
 			/**
 			 * Is Temporary
-			 * @default false
+			 * @description 一時的な購入（必須）
 			 */
 			is_temporary: boolean;
 		};

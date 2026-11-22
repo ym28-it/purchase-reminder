@@ -55,7 +55,9 @@ def put_purchase_endpoint(
         id=purchase_id,
         name=request.name,
         category=request.category,
+        unit=request.unit,
         days_per_unit=request.days_per_unit,
+        buffer_days=request.buffer_days,
         stock=request.stock,
         is_temporary=request.is_temporary,
     )
