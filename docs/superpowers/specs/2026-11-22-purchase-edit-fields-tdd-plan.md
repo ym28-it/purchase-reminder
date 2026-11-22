@@ -242,14 +242,14 @@ PUTの入力が7項目の完全置き換えに変わるため、次の既存テ�
 
 - 実行コマンド（`backend/`）: `ruff check .`、`ruff format --check .`、`pytest -m "not integration" -q`、上記integration
 - 結果: ruff check・format --check 通過、unit 79 passed、integration 180 passed
-- 未実行の検証と理由: `bun run build`はTask 3・4（`EditPurchaseDialog.tsx`が旧7項目未満の`PurchasePutRequest`を構築している型エラー）で解消するため未通過。フロントエンドのテストはTask 3以降
+- 未実行の検証と理由: Backend側の回帰実行時点では`bun run build`が型エラー（TS2739、`EditPurchaseDialog.tsx`が7項目未満の`PurchasePutRequest`を構築）で通過しなかったが、Task 4（Frontend Green）で解消し、`bun run build`は終了コード0で通過した（Task 4 Green記録、および実装後テストレポートの全体検証）
 
 ## TDD Green Gate
 
-- [ ] Valid Redを確認した、または正当なRed例外を記録した
-- [ ] テストを緩和せずGreenになった
-- [ ] 凍結済みTDDテストがRed記録時から変更されていない
-- [ ] 承認済みの最小TDDテストがリファクタ後もGreenである
-- [ ] Contract ID、仕様ID、Test Case IDの対応を維持した
-- [ ] TDD候補外のTest Case IDを実装後テストへ引き継いだ
-- [ ] 論理テストケースの参照版が変わっていない、または再承認した
+- [x] Valid Redを確認した、または正当なRed例外を記録した
+- [x] テストを緩和せずGreenになった
+- [x] 凍結済みTDDテストがRed記録時から変更されていない
+- [x] 承認済みの最小TDDテストがリファクタ後もGreenである
+- [x] Contract ID、仕様ID、Test Case IDの対応を維持した
+- [x] TDD候補外のTest Case IDを実装後テストへ引き継いだ
+- [x] 論理テストケースの参照版が変わっていない、または再承認した

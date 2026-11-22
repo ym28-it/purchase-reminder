@@ -243,15 +243,14 @@ def test_review_focus_1_edit_keeps_created_at(client: TestClient) -> None:
     assert raw_item(created["id"])["created_at"] == raw_created_at
 
 
-@pytest.mark.parametrize("sent", [2])
-def test_review_focus_5_stock_2_and_2_0_do_not_update_stock_counted_at(
-    client: TestClient, sent: int
+def test_review_focus_5_same_integer_stock_does_not_update_stock_counted_at(
+    client: TestClient,
 ) -> None:
     as_user(USER)
     created = create(client, stock=2)
     time.sleep(0.01)
 
-    response = client.put(f"/purchases/{created['id']}", json=put_body(stock=sent))
+    response = client.put(f"/purchases/{created['id']}", json=put_body(stock=2))
 
     assert response.status_code == 200
     assert response.json()["stock_counted_at"] == created["stock_counted_at"]
@@ -425,3 +424,42 @@ def test_review_focus_3_unrelated_concurrent_write_does_not_recount_stock(
     assert len(reads) == 2
     assert response.json()["stock_counted_at"] == created["stock_counted_at"]
     assert response.json()["days_per_unit"] == 4
+
+
+def test_pedt_review_focus_5_retried_edit_keeps_latest_unit_buffer_and_created_at(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PEDT Review Focus 5: a retry after a concurrent edit still writes all seven fields."""
+    as_user(USER)
+    created = create(client, stock=2)
+    raw_created_at = raw_item(created["id"])["created_at"]
+    time.sleep(0.01)
+
+    def concurrent() -> None:
+        purchase_service.put_purchase(
+            USER,
+            UUID(created["id"]),
+            name="牛乳",
+            category="食品",
+            unit="箱",
+            buffer_days=9,
+            days_per_unit=8,
+            stock=2,
+            is_temporary=False,
+        )
+
+    reads = inject_concurrent_edit(monkeypatch, created["id"], concurrent)
+
+    response = client.put(
+        f"/purchases/{created['id']}",
+        json=put_body(unit="本", buffer_days=4, days_per_unit=5, is_temporary=True),
+    )
+
+    assert response.status_code == 200
+    assert len(reads) == 2  # the first attempt lost the race and was retried
+    for body in (response.json(), purchases(client)[0]):
+        assert (body["unit"], body["buffer_days"], body["days_per_unit"]) == ("本", 4, 5)
+        assert body["is_temporary"] is True
+        assert body["created_at"] == created["created_at"]
+        assert body["stock_counted_at"] == created["stock_counted_at"]
+    assert raw_item(created["id"])["created_at"] == raw_created_at
