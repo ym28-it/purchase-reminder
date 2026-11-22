@@ -89,15 +89,72 @@ Core Contract Gate通過前に、最小TDDテストセット、テストコー�
 
 ## Baseline
 
-Core Contract Gate通過後に記録する。
+- 基準コミットSHA: `f8edefa`（Core Contract Gate承認記録。プロダクトコードは`main`の`720f35c`と同一）
+- 実行環境: Claude Code（クラウドセッション、Linux）。`bash scripts/setup_host_prerequisites.sh --install`の後、`--check`がPass（mise 2026.9.12、uv 0.12.18、Temurin Java 17.0.21.1、Python 3.14.7）
+- 実行コマンドと結果:
+
+| 検証 | コマンド（実行場所） | 結果 |
+|---|---|---|
+| Backend lint | `../bin/mise exec -- uv run ruff check .`（`backend/`） | Pass |
+| Backend format | `../bin/mise exec -- uv run ruff format --check .`（`backend/`） | Pass（51 files） |
+| Backend unit | `../bin/mise exec -- uv run pytest -m "not integration"`（`backend/`） | 73 passed |
+| Backend integration | `../bin/mise exec -- uv run python -m scripts.run_with_dynamodb_local -- uv run pytest -m integration`（`backend/`） | 90 passed、exit 0 |
+| Frontend lint | `bun run lint`（`frontend/`） | Pass |
+| Frontend format | `bun run format:check`（`frontend/`） | Pass |
+| Frontend Vitest | `bun run test -- --run`（`frontend/`） | 77 passed（6 files） |
+| Frontend build・型検査 | `bun run build`（`frontend/`、`vite build && tsc -b`） | Pass |
+| E2E | `bash e2e/run-e2e.sh`と同じrunnerで、Chromiumの実行ファイルだけを一時設定で指定 | 2 passed |
+
+- 既存失敗: なし
+- 環境上の注記:
+  - Backend integrationの初回実行は、Maven Wrapperの配布物取得が`ENVIRONMENT_FAILURE`（exit 70）になった。同じURLは直後に`curl`・`wget`・`./mvnw -v`で取得でき、再実行でPassしたため、一時的なネットワーク障害と判断した
+  - このクラウドセッションには`e2e/`が指定するPlaywrightのブラウザ（chromium_headless_shell-1194）がなく、`bash e2e/run-e2e.sh`はブラウザ起動前に失敗する。コミットしない一時設定（`launchOptions.executablePath`に`/opt/pw-browsers/chromium`を指定）で同じrunnerから実行し、Passを確認した。リポジトリの環境コードは変更していない
+- 未実行の検証と理由: なし
+- 既存失敗を今回の変更から分離できるか: Yes（既存失敗なし）
 
 ## 既存テストによる保護
 
-Core Contract Gate通過後に記録する。
+| Contract ID | 既存テスト | Baseline結果 | 十分か | 新規テスト | 根拠 |
+|---|---|---|---|---|---|
+| PTF-CORE-001〜009 | なし（既存の登録・一覧テストは`speed`と上限100,000を前提にする） | Pass | No | Add | 新設・改名した契約で、既存テストでは観測されない |
+
+PURC第2版の既存テスト（凍結済みTDDテストを含む）のうち、`speed`、上限100,000、5項目の入力、`speed`の表示を前提にするものは、PURC第3版（2026-11-22承認）を根拠に書き直す。書き直しはRedタスクで行い、期待動作が第3版で変わるテストだけを対象にする。期待動作が変わらないテストは、項目名と基準入力の読み替えだけを行う。書き直したテストと理由はRed記録に残す。
 
 ## 最小TDDテストセット
 
-Core Contract Gate通過後に作成する。
+| Test Case ID | Contract ID | 役割 | テストレベル | 実テスト予定場所 | 変更前の期待状態 | 選定根拠 |
+|---|---|---|---|---|---|---|
+| PTF-008-TC1 | PTF-CORE-001 | 変更目的 | Integration（API + DynamoDB Local） | `backend/tests/integration/api/test_purchase_ptf.py` | Red | 新項目付きの登録が201で返り、在庫を数えた日時が作成日時と一致することを1本で識別する |
+| PTF-011-TC1 | PTF-CORE-001 | 代表回帰 | Integration（API + DynamoDB Local） | 同上 | Red | 永続化した新項目を一覧取得で読み戻せることを識別する（レスポンスだけ返して保存しない実装を検出する） |
+| PTF-006-TC2 | PTF-CORE-002 | 重大反例 | Integration（API + DynamoDB Local） | 同上 | Red | クライアントが送った在庫を数えた日時を使う実装を検出する |
+| PTF-002-TC2 | PTF-CORE-003 | 重大反例 | Integration（API + DynamoDB Local） | 同上 | Red | 新しい上限365を超える366が保存されないことを識別する（旧上限100,000のままの実装を検出する） |
+| PTF-001-TC3 | PTF-CORE-003 | 重大反例 | Integration（API + DynamoDB Local） | 同上 | Red | 旧名`speed`だけで登録できてしまう実装を検出する |
+| PTF-003-TC4 | PTF-CORE-004 | 重大反例 | Integration（API + DynamoDB Local） | 同上 | Red | 余裕日数を省略できてしまう実装を検出する |
+| PTF-003-TC3 | PTF-CORE-004 | 重大反例 | Integration（API + DynamoDB Local） | 同上 | Red | 余裕日数の上限30を超える31が保存されないことを識別する |
+| PTF-014-TC1 | PTF-CORE-005 | 重大反例 | Integration（API + DynamoDB Local） | 同上 | Red | 購入単位を省略できてしまう実装を検出する |
+| PTF-014-TC4 | PTF-CORE-005 | 重大反例 | Integration（API + DynamoDB Local） | 同上 | Red | 購入単位の上限10文字を超える11文字が保存されないことを識別する |
+| PTF-013-TC1 | PTF-CORE-006 | 変更目的 | Integration（API + DynamoDB Local） | 同上 | Red | 編集で在庫を変えたとき、在庫を数えた日時が更新日時と同じ時刻に更新されることを識別する |
+| PTF-007-TC1 | PTF-CORE-006 | 重大反例 | Integration（API + DynamoDB Local） | 同上 | Red | 編集のたびに在庫を数えた日時を更新してしまう実装を検出する |
+| PTF-012-TC1 | PTF-CORE-007 | 重大反例 | Integration（API + DynamoDB Local） | 同上 | Red | 編集で購入単位と余裕日数が消える実装を検出する |
+| PTF-001-TC1 | PTF-CORE-008 | 変更目的 | Component | `frontend/src/features/CreatePurchaseDialog.ptf.test.tsx` | Red | 登録画面に7項目があることを識別する |
+| PTF-003-TC5 | PTF-CORE-008 | 変更目的 | Component | 同上 | Red | 余裕日数を変えずに登録すると0で送信されることを、送信内容で識別する |
+| PTF-015-TC2 | PTF-CORE-009 | 変更目的 | Component | `frontend/src/features/Purchase.ptf.test.tsx` | Red | 一覧が在庫と1単位あたりの日数を単位名付きで表示することを識別する |
+
+すべての承認済み中心的契約（PTF-CORE-001〜009）を、少なくとも1つの新規テストで識別する。次は中心的契約に含まれるが、最小TDDセットから外して実装後テストへ送る。
+
+| Test Case ID | Contract ID | 実装後へ送る理由 |
+|---|---|---|
+| PTF-001-TC2 | PTF-CORE-001 | PTF-008-TC1とPTF-011-TC1で、レスポンスと再取得の両方を識別済み |
+| PTF-006-TC1 | PTF-CORE-001 | PTF-008-TC1が作成日時との一致を確認する |
+| PTF-015-TC1 | PTF-CORE-001 | PTF-008-TC1とPTF-011-TC1が購入単位を含めて確認する |
+| PTF-002-TC1 | PTF-CORE-003 | 境界の受け付け側（0、365）。拒否側の366で上限の取り違えを識別できる |
+| PTF-005-TC1、TC2 | PTF-CORE-003 | 型と負数の拒否は既存の`stock`と同じ仕組みで、項目を足すだけで同じ失敗の仕方になる |
+| PTF-003-TC2 | PTF-CORE-004 | 境界の受け付け側（0、30） |
+| PTF-005-TC3 | PTF-CORE-004 | PTF-005-TC1、TC2と同じ理由 |
+| PTF-014-TC2、TC3、TC5 | PTF-CORE-005 | 空白だけの拒否、10文字の受け付け、前後空白の保持は、名前・カテゴリと同じ仕組み（PURC-004-TC1〜6） |
+| PTF-013-TC2 | PTF-CORE-006 | PTF-007-TC1が「在庫を変えない編集では更新しない」を識別する |
+| PTF-003-TC1 | PTF-CORE-008 | 初期値の表示。PTF-003-TC5が余裕日数の初期値0を送信内容で識別する |
+| PTF-009-TC1 | PTF-CORE-009 | 表示項目の網羅。PTF-015-TC2が新項目の表示を識別する |
 
 ## Test Plan Gate
 
