@@ -196,6 +196,24 @@ PUTの入力が7項目の完全置き換えに変わるため、次の既存テ�
 - 凍結したテストファイル: `backend/tests/integration/api/test_purchase_edit_fields.py`
 - Red記録コミットSHA: `7261023`
 
+#### Frontend Red（Task 3）
+
+| Test Case ID | 実行コマンド | 実際の失敗 | Valid Red | 判定根拠 |
+|---|---|---|---|---|
+| PEDT-007-TC1、TC2 | `bun run test -- --run`（`frontend/`） | `Unable to find a label with the text of: /^購入単位/`（購入単位・余裕日数の入力欄がない） | Valid Red | モック・import・収集は正常で、編集ダイアログが全7項目を持たない契約未実装による |
+| PEDT-007-TC4 | 同上 | `Unable to find a label with the text of: /^購入単位/` | Valid Red | 同上 |
+| PEDT-008-TC1（購入単位 空・空白だけ） | 同上 | `Unable to find a label with the text of: /^購入単位/` | Valid Red | 購入単位の入力欄と検証がない |
+| PEDT-008-TC1（日数1.5・366、在庫1.5・100001） | 同上 | `expected null not to be null`（エラーの`p`が表示されない。要求は検証されずに送信される） | Valid Red | 小数・上限の検証がない |
+| PEDT-008-TC1（余裕日数1.5・31） | 同上 | `Unable to find a label with the text of: /余裕日数/` | Valid Red | 余裕日数の入力欄がない |
+| PEDT-008-TC2 | 同上 | `Unable to find a label with the text of: /^購入単位/`（編集ダイアログに購入単位・余裕日数の欄がない。日数0も現行スキーマは拒否する） | Valid Red | 同上 |
+| PEDT-010-TC1（書き直し既存） | 同上 | `expected { name, category, …(3) } to deeply equal { name, category, …(5) }`（`unit`・`buffer_days`が送信されない） | Valid Red | 送信項目が足りない |
+
+- 実装計画のRedタスク: Task 3（Frontend Red）
+- 環境スモーク・Baselineの結果: 変更前 97 passed。Red後 12 failed / 96 passed（108件）。失敗12件は新規11件（TC1/TC2が1、TC4が1、TC1のtest.each 8、TC2が1）と書き直したPEDT-010-TC1の1件で、それ以外の既存96件の新規FAILはなく、収集・import失敗もない。`bun run lint`・`bun run format:check`は通過。実行コマンド: `bun run test -- --run`（`frontend/`、終了コード1）
+- 書き直した既存テスト: `Purchase.ptf.post.test.tsx`の`PTF-012-TC1 (UI side)`を`PEDT-010-TC1`へ（PUTボディが7項目で、`unit`・`buffer_days`が保存済みの値のまま）。`PTF-012-TC2`は変更なし
+- 凍結したテストファイル: `frontend/src/features/Purchase.edit.test.tsx`、`frontend/src/features/Purchase.ptf.post.test.tsx`のPEDT-010-TC1
+- Red記録コミットSHA: 本コミット（Backend Redの`7261023`とは別。SHAは後続コミットで追記）
+
 ### Green
 
 | Test Case ID | 実行コマンド | 結果 |
