@@ -236,7 +236,7 @@ PUTの入力が7項目の完全置き換えに変わるため、次の既存テ�
 - 凍結済みテストの差分確認（`git diff ab0ca60 -- frontend/src/features/Purchase.edit.test.tsx frontend/src/features/Purchase.ptf.post.test.tsx`）: 差分なし
 - 実装: 検証を`frontend/src/features/purchaseFormSchema.ts`（`purchaseFormSchema`）へ切り出し、登録・編集ダイアログが共有。編集ダイアログへ購入単位・余裕日数の入力欄を追加し、数値欄を`valueAsNumber`にし、7項目を`PurchasePutRequest`として送信。登録ダイアログの振る舞いは変更なし
 - 検証: `bun run lint`、`bun run format:check`、`bun run build`（`tsc -b`を含む。Task 2から残っていたTS2739が解消）がいずれも終了コード0
-- Green記録コミットSHA: （コミット後に追記）
+- Green記録コミットSHA: `ef4924f`
 
 ### Refactor・回帰
 
