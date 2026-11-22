@@ -168,7 +168,9 @@ def test_ptf_tdd_010_ptf_013_tc1_stock_edit_recounts_at_updated_at(client: TestC
         json={
             "name": "牛乳",
             "category": "食品",
+            "unit": "パック",
             "days_per_unit": 3,
+            "buffer_days": 0,
             "stock": 5,
             "is_temporary": False,
         },
@@ -193,7 +195,9 @@ def test_ptf_tdd_011_ptf_007_tc1_rename_keeps_stock_counted_at(client: TestClien
         json={
             "name": "豆乳",
             "category": "飲料",
+            "unit": "パック",
             "days_per_unit": 3,
+            "buffer_days": 0,
             "stock": 2,
             "is_temporary": False,
         },
@@ -203,25 +207,3 @@ def test_ptf_tdd_011_ptf_007_tc1_rename_keeps_stock_counted_at(client: TestClien
     edited = response.json()
     assert when(edited["updated_at"]) > when(created["created_at"])
     assert edited["stock_counted_at"] == created["stock_counted_at"]
-
-
-def test_ptf_tdd_012_ptf_012_tc1_edit_keeps_unit_and_buffer_days(client: TestClient) -> None:
-    """PTF-012-TC1; PTF-CORE-007."""
-    as_user("user-a")
-    created = create(client, buffer_days=2)
-
-    response = client.put(
-        f"/purchases/{created['id']}",
-        json={
-            "name": "牛乳",
-            "category": "食品",
-            "days_per_unit": 5,
-            "stock": 2,
-            "is_temporary": False,
-        },
-    )
-
-    assert response.status_code == 200
-    [listed] = purchases(client)
-    for body in (response.json(), listed):
-        assert (body["days_per_unit"], body["unit"], body["buffer_days"]) == (5, "パック", 2)

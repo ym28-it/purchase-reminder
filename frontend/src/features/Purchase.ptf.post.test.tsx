@@ -88,7 +88,7 @@ test("PTF-012-TC2: the edit dialog shows the saved days per unit", async () => {
 	expect(within(dialog).getByLabelText(/使い切る日数/)).toHaveValue(3);
 });
 
-test("PTF-012-TC1 (UI side): saving an edit sends days_per_unit and never unit or buffer_days", async () => {
+test("PEDT-010-TC1 (PEDT-CORE-007): changing only days_per_unit sends the saved unit and buffer_days unchanged", async () => {
 	const putBodies: unknown[] = [];
 	fetchMock.mockImplementation(async (request: Request) => {
 		if (request.method === "PUT") {
@@ -118,7 +118,9 @@ test("PTF-012-TC1 (UI side): saving an edit sends days_per_unit and never unit o
 	expect(putBodies[0]).toEqual({
 		name: "牛乳",
 		category: "食品",
+		unit: "パック",
 		days_per_unit: 5,
+		buffer_days: 2,
 		stock: 2,
 		is_temporary: true,
 	});
